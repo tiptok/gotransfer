@@ -88,6 +88,7 @@ type TcpHandler interface {
 
 	OnReceive(*Connector) bool
 
+
 	OnClose(*Connector)
 }
 
