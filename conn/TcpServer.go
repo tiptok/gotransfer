@@ -9,13 +9,16 @@ import (
 
 //server
 type TcpServer struct {
-	Ip      string
-	Port    int
-	Conn    []Connector
-	Handler TcpHandler
-	config  *Conifg
+	Ip       string
+	Port     int
+	Conn     []Connector
+	Handler  TcpHandler
+	config   *Conifg
+	protocol Protocol
+	Online   map[string]*Connector
 }
 
+//new tcpServer
 func (tcpServer *TcpServer) NewTcpServer(ip string, port int) {
 	tcpServer.Ip = ip
 	tcpServer.Port = port
@@ -23,9 +26,11 @@ func (tcpServer *TcpServer) NewTcpServer(ip string, port int) {
 		SendSize:    500,
 		ReceiveSize: 500,
 	}
-	tcpServer.Conn = make([]Connector, 500)
+	//tcpServer.Conn = make([]Connector, 500)
+	tcpServer.Online = make(map[string]*Connector)
 }
 
+//启动tcp服务
 func (tcpServer *TcpServer) Start(handler TcpHandler) {
 
 	tcpServer.Handler = handler
@@ -43,63 +48,32 @@ func (tcpServer *TcpServer) Start(handler TcpHandler) {
 		} else {
 			//tcpconn ? netconn?
 			//tcpServer.Conn = append(tcpServer.Conn, conn)
-			//添加到连接列表里面
-			//tcpconn := NewConn(*net.TCPConn(conn), tcpServer)
-		}
-		//go tcpServer.ProcessRecv(conn)
+			connector := NewConn(&conn, tcpServer)
 
+			//新连接 添加到在线列表里面
+			if _, exists := tcpServer.Online[connector.RemoteAddress]; !exists {
+				tcpServer.Online[connector.RemoteAddress] = connector
+			}
+
+			tcpServer.Handler.OnConnect(connector)
+			go connector.ProcessRecv()
+			go connector.DataHandler()
+			go connector.ProcessSend()
+		}
 	}
 
 }
 
-func (tcpServer *TcpServer) ProcessRecv(conn net.Conn) {
-	defer conn.Close()
-	fmt.Println("New Conn->RemoteAddr:", conn.RemoteAddr())
-
-	for {
-		buf := make([]byte, 1024)
-		length, err := conn.Read(buf)
-		if err != nil {
-			fmt.Println(conn.RemoteAddr(), " Error reading.", err.Error())
-			return
-		}
-		tcpServer.RecChan <- TcpData{buffer: buf[:length]}
-		fmt.Println("Receive data from client:", string(buf[:length]))
-		fmt.Println("Recv Queen Size:", len(tcpServer.RecChan))
-	}
-}
-
-//server config
-type Conifg struct {
-	SendSize    uint32
-	ReceiveSize uint32
-}
-
-type Connector struct {
-	srv      *TcpServer
-	conn     *net.TCPConn
-	handler  TcpHandler
-	SendChan chan TcpData
-	RecChan  chan TcpData
-}
-
+//回调处理事件
 type TcpHandler interface {
 	OnConnect(*Connector) bool
 
-	OnReceive(*Connector) bool
+	OnReceive(*Connector, TcpData) bool
 
 	OnClose(*Connector)
 }
 
+//tcpData
 type TcpData struct {
 	buffer []byte
-}
-
-func NewConn(tcpconn *net.TCPConn, srv *TcpServer) *Conn {
-	return &Connector{
-		srv:      srv,
-		conn:     tcpconn,
-		SendChan: make(chan TcpData, srv.config.SendSize),
-		RecChan:  make(chan TcpData, srv.config.ReceiveSize),
-	}
 }
