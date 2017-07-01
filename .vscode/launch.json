@@ -3,6 +3,7 @@
     "configurations": [
         {
 <<<<<<< HEAD
+<<<<<<< HEAD
             "name": "Launch file",
             "type": "go",
             "request": "launch",
@@ -12,6 +13,8 @@
         {
 =======
 >>>>>>> f4d7d6bb333d47c68e61a401aac36a3599d4541a
+=======
+>>>>>>> 8a06804d8651f53f50e4aa4dfe9931b34506675d
             "name": "Launch",
             "type": "go",
             "request": "launch",
