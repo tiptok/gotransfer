@@ -20,19 +20,13 @@ func (connector *Connector) ProcessRecv() {
 	fmt.Println("New Conn->RemoteAddr:", conn.RemoteAddr())
 
 	for {
-
-		// select{
-
-		// }
-		//tcpData :=T
+		// data := make([]byte, 1024)
+		// length, err := conn.Read(data)
+		// tcpData := TcpData{buffer: data[:length]}
 		tcpData, err := connector.ReadFullData()
-		if err != nil {
+		if err != nil && tcpData.Lenght() > 0 {
 			connector.RecChan <- tcpData
 		}
-
-		//tcpServer.RecChan <- TcpData{buffer: buf[:length]}
-		//fmt.Println("Receive data from client:", string(buf[:length]))
-		//fmt.Println("Recv Queen Size:", len(tcpServer.RecChan))
 	}
 }
 
@@ -74,14 +68,17 @@ func (connector *Connector) ProcessSend() {
 }
 
 func (connector *Connector) ReadFullData() (TcpData, error) {
+
 	conn := *(connector.Conn)
+	defer conn.Close() //关闭
+
 	buf := bytes.NewBuffer([]byte{})
 	var tcpData TcpData
 	for {
 		data := make([]byte, 1024)
 		length, err := conn.Read(data)
 		if err != nil {
-			fmt.Println(conn.RemoteAddr(), " Error reading.", err.Error())
+			//fmt.Println(conn.RemoteAddr(), " Error reading.", err.Error())
 			return tcpData, err
 		}
 		if length == 0 {
@@ -94,6 +91,7 @@ func (connector *Connector) ReadFullData() (TcpData, error) {
 		}
 		buf.Write(data[:length])
 	}
+	//return TcpData{buffer: buf.Bytes()}, nil
 }
 
 //Connector config

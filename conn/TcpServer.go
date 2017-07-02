@@ -9,7 +9,6 @@ import (
 
 //server
 type TcpServer struct {
-	Ip       string
 	Port     int
 	Conn     []Connector
 	Handler  TcpHandler
@@ -19,8 +18,7 @@ type TcpServer struct {
 }
 
 //new tcpServer
-func (tcpServer *TcpServer) NewTcpServer(ip string, port int) {
-	tcpServer.Ip = ip
+func (tcpServer *TcpServer) NewTcpServer(port, sSize, rSize int) {
 	tcpServer.Port = port
 	tcpServer.config = &Conifg{
 		SendSize:    500,
@@ -35,12 +33,13 @@ func (tcpServer *TcpServer) NewTcpServer(ip string, port int) {
 func (tcpServer *TcpServer) Start(handler TcpHandler) {
 
 	tcpServer.Handler = handler
-	sAddr := tcpServer.Ip + ":" + strconv.Itoa(tcpServer.Port)
-	listen, err := net.Listen("tcp", sAddr)
+	sAddr, err := net.ResolveTCPAddr("tcp4", "127.0.0.1"+":"+strconv.Itoa(tcpServer.Port))
+	//sAddr := tcpServer.Ip + ":" + strconv.Itoa(tcpServer.Port)
+	listen, err := net.Listen("tcp", sAddr.String())
 	if err != nil {
-		log.Fatal("Server Start Error." + err.Error())
+		log.Println("Server Start Error." + err.Error())
 	}
-	log.Fatal(tcpServer.Ip, ":", tcpServer.Port, "Start Listen.")
+	log.Println(sAddr.String(), "Start Listen.")
 
 	for {
 		conn, err := listen.Accept()
@@ -77,4 +76,12 @@ type TcpHandler interface {
 //tcpData
 type TcpData struct {
 	buffer []byte
+}
+
+func (d TcpData) Bytes() []byte {
+	return d.buffer
+}
+
+func (d TcpData) Lenght() int {
+	return len(d.buffer)
 }
