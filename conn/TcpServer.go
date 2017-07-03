@@ -48,7 +48,7 @@ func (tcpServer *TcpServer) Start(handler TcpHandler) {
 		} else {
 			//tcpconn ? netconn?
 			//tcpServer.Conn = append(tcpServer.Conn, conn)
-			connector := NewConn(&conn, tcpServer)
+			connector := NewConn(&conn, tcpServer.Handler, *tcpServer.config)
 
 			//新连接 添加到在线列表里面
 			if _, exists := tcpServer.Online[connector.RemoteAddress]; !exists {

@@ -10,12 +10,13 @@ import (
 )
 
 var srv conn.TcpServer
+var srvUdp conn.UpdServer
 var exit chan int
 var param comm.Param
-var tcpTransferList map[string][]conn.Connector
+var tcpTransferList map[string](map[string]*conn.Connector)
 
 func main() {
-	tcpTransferList = make(map[string][]conn.Connector)
+	tcpTransferList = make(map[string](map[string]*conn.Connector))
 	exit = make(chan int, 1)
 	//F:/App/Go/WorkSpace/src/github.com/tiptok/gotransfer/
 	err := comm.ReadConfig(&param, "param.json")
@@ -23,9 +24,18 @@ func main() {
 		fmt.Println(err.Error())
 	}
 	fmt.Println(param)
-	//启动服务
-	srv.NewTcpServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
-	srv.Start(&transferSvrHandler{})
+	//启动tcp服务
+	// go func() {
+	// 	srv.NewTcpServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
+	// 	srv.Start(&transferSvrHandler{})
+	// }()
+
+	//启动upd服务
+	go func() {
+		srvUdp.NewTcpServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
+		srvUdp.Start(&transferUdpSvrHandler{})
+	}()
+
 	<-exit
 	fmt.Println("App Stop.")
 }
@@ -41,20 +51,138 @@ func (trans *transferSvrHandler) OnConnect(c *conn.Connector) bool {
 	for _, srv := range param.Transfers {
 		var tcpClient conn.TcpClient
 		tcpClient.NewTcpClient(srv.Ip, srv.Port, 500, 500)
-
-		key :=c.RemoteAddress+"1"
-		if _,ok :=map[key];ok{
-			
+		if !tcpClient.Start(&transferClinetHandler{}) {
+			continue //client 启动失败
 		}
-		else{
-			map[key] =make([]conn.Connector,1)
+		//tcpAddress +"-1" as tcp key
+		//已存在
+		key := c.RemoteAddress + "-1"
+		if _, ok := tcpTransferList[key]; !ok {
+			tcpTransferList[key] = make(map[string]*conn.Connector)
 		}
+		tcpTransferList[key][tcpClient.LocalAdr] = tcpClient.Conn
 	}
 	return true
 }
 func (trans *transferSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
 	fmt.Println(time.Now(), c.RemoteAddress, " OnReceive Data.", string(d.Bytes()))
+
+	//test echo
+	//c.SendChan <- d
+
+	sKey := c.RemoteAddress + "-1"
+	if _, ok := tcpTransferList[sKey]; ok {
+		//分发数据
+		for _, value := range tcpTransferList[sKey] {
+			value.SendChan <- d
+		}
+	}
 	return true
 }
 func (trans *transferSvrHandler) OnClose(c *conn.Connector) {
+	//从列表移除
+}
+
+/*
+连接事件
+tpc client 使用
+*/
+type transferClinetHandler struct {
+}
+
+func (trans *transferClinetHandler) OnConnect(c *conn.Connector) bool {
+	return true
+}
+func (trans *transferClinetHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
+	sKey := SearchDstClient((*c.Conn).LocalAddr().String())
+	if _, ok := srv.Online[sKey]; ok {
+		fmt.Println(time.Now(), (*c.Conn).LocalAddr().String(), "Send To->", sKey, ":", string(d.Bytes()))
+		//下方数据到 目标客户端
+		srv.Online[sKey].SendChan <- d
+	}
+	return true
+}
+func (trans *transferClinetHandler) OnClose(c *conn.Connector) {
+	//从列表移除
+}
+
+/*
+连接事件
+tpc server 使用
+*/
+type transferUdpSvrHandler struct {
+}
+
+func (trans *transferUdpSvrHandler) OnConnect(c *conn.Connector) bool {
+	for _, srv := range param.Transfers {
+		var tcpClient conn.UpdClient
+		tcpClient.NewTcpClient(srv.Ip, srv.Port, 500, 500)
+		if !tcpClient.Start(&transferUpdClinetHandler{}) {
+			continue //client 启动失败
+		}
+		//tcpAddress +"-1" as tcp key
+		//已存在
+		key := c.RemoteAddress + "-2"
+		if _, ok := tcpTransferList[key]; !ok {
+			tcpTransferList[key] = make(map[string]*conn.Connector)
+		}
+		tcpTransferList[key][tcpClient.LocalAdr] = tcpClient.Conn
+	}
+	return true
+}
+func (trans *transferUdpSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
+	fmt.Println(time.Now(), c.RemoteAddress, " OnReceive Data.", string(d.Bytes()))
+
+	//test echo
+	//c.SendChan <- d
+
+	sKey := c.RemoteAddress + "-2"
+	if _, ok := tcpTransferList[sKey]; ok {
+		//分发数据
+		for _, value := range tcpTransferList[sKey] {
+			value.SendChan <- d
+		}
+	}
+	return true
+}
+func (trans *transferUdpSvrHandler) OnClose(c *conn.Connector) {
+	//从列表移除
+}
+
+/*
+连接事件
+tpc client 使用
+*/
+type transferUpdClinetHandler struct {
+}
+
+func (trans *transferUpdClinetHandler) OnConnect(c *conn.Connector) bool {
+	return true
+}
+func (trans *transferUpdClinetHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
+	sKey := SearchDstClient((*c.Conn).LocalAddr().String())
+	if _, ok := srvUdp.Online[sKey]; ok {
+		fmt.Println(time.Now(), (*c.Conn).LocalAddr().String(), "Send To->", sKey, ":", string(d.Bytes()))
+		//下方数据到 目标客户端
+		srv.Online[sKey].SendChan <- d
+	}
+	return true
+}
+func (trans *transferUpdClinetHandler) OnClose(c *conn.Connector) {
+	//从列表移除
+}
+
+//公用方法
+//寻找目标
+func SearchDstClient(skey string) (dst string) {
+	for key1, _ := range tcpTransferList {
+		for key2, _ := range tcpTransferList[key1] {
+			if key2 == skey {
+				sub := []byte(key1)
+				length := len(key1) - 2
+				dst = string(sub[:length]) //去掉末尾 -1
+			}
+		}
+	}
+	return dst
 }

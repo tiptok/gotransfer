@@ -40,7 +40,7 @@ func (connector *Connector) DataHandler() {
 	for {
 		select {
 		case p := <-connector.RecChan:
-			if !(connector.srv.Handler.OnReceive(connector, p)) {
+			if !(connector.handler.OnReceive(connector, p)) {
 				return
 			}
 		}
@@ -57,11 +57,8 @@ func (connector *Connector) ProcessSend() {
 	for {
 		select {
 		case p := <-connector.SendChan:
-			if len(p.buffer) == 0 {
-				return
-			}
 			if _, err := conn.Write(p.buffer); err != nil {
-				return
+				//close
 			}
 		}
 	}
@@ -101,7 +98,7 @@ type Conifg struct {
 }
 
 type Connector struct {
-	srv           *TcpServer
+	//srv           *TcpServer
 	Conn          *net.Conn
 	handler       TcpHandler
 	SendChan      chan TcpData
@@ -109,12 +106,13 @@ type Connector struct {
 	RemoteAddress string
 }
 
-func NewConn(tcpconn *net.Conn, srv *TcpServer) *Connector {
+func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, srv *TcpServer
 	return &Connector{
-		srv:           srv,
+		//srv:           srv,
 		Conn:          tcpconn,
-		SendChan:      make(chan TcpData, srv.config.SendSize),
-		RecChan:       make(chan TcpData, srv.config.ReceiveSize),
+		SendChan:      make(chan TcpData, config.SendSize),
+		RecChan:       make(chan TcpData, config.ReceiveSize),
 		RemoteAddress: (*tcpconn).RemoteAddr().String(),
+		handler:       h,
 	}
 }
