@@ -20,11 +20,11 @@ func (connector *Connector) ProcessRecv() {
 	fmt.Println("New Conn->RemoteAddr:", conn.RemoteAddr())
 
 	for {
-		// data := make([]byte, 1024)
-		// length, err := conn.Read(data)
-		// tcpData := TcpData{buffer: data[:length]}
-		tcpData, err := connector.ReadFullData()
-		if err != nil && tcpData.Lenght() > 0 {
+		data := make([]byte, 1024)
+		length, err := conn.Read(data)
+		tcpData := TcpData{buffer: data[:length]}
+		//tcpData, err := connector.ReadFullData()
+		if err == nil && tcpData.Lenght() > 0 {
 			connector.RecChan <- tcpData
 		}
 	}
