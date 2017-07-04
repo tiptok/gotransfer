@@ -67,10 +67,7 @@ func (trans *transferSvrHandler) OnConnect(c *conn.Connector) bool {
 	return true
 }
 func (trans *transferSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
-	fmt.Println(TimeFormat(time.Now()), c.RemoteAddress, " OnReceive Data.", string(d.Bytes()))
-
-	//test echo
-	//c.SendChan <- d
+	//fmt.Println(TimeFormat(time.Now()), c.RemoteAddress, " OnReceive Data.", string(d.Bytes()))
 
 	sKey := c.RemoteAddress + "-1"
 	if _, ok := tcpTransferList[sKey]; ok {
@@ -98,7 +95,7 @@ func (trans *transferClinetHandler) OnConnect(c *conn.Connector) bool {
 func (trans *transferClinetHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
 	sKey := SearchDstClient((*c.Conn).LocalAddr().String())
 	if _, ok := srv.Online[sKey]; ok {
-		fmt.Println(TimeFormat(time.Now()), (*c.Conn).LocalAddr().String(), "Send To->", sKey, ":", string(d.Bytes()))
+		//fmt.Println(TimeFormat(time.Now()), (*c.Conn).LocalAddr().String(), "Send To->", sKey, ":", string(d.Bytes()))
 		//下方数据到 目标客户端
 		srv.Online[sKey].SendChan <- d
 	}
@@ -133,7 +130,7 @@ func (trans *transferUdpSvrHandler) OnConnect(c *conn.Connector) bool {
 	return true
 }
 func (trans *transferUdpSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
-	fmt.Println(TimeFormat(time.Now()), c.RemoteAddress, "Udp OnReceive Data.", string(d.Bytes()))
+	//fmt.Println(TimeFormat(time.Now()), c.RemoteAddress, "Udp OnReceive Data.", string(d.Bytes()))
 
 	//创建客户端
 	if len(udpTransList) == 0 {

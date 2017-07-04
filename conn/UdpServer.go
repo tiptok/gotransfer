@@ -31,7 +31,8 @@ func (updServer *UpdServer) NewUpdServer(port, sSize, rSize int) {
 
 func (tcpServer *UpdServer) Start(handler TcpHandler) {
 	tcpServer.Handler = handler
-	sAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1"+":"+strconv.Itoa(tcpServer.Port))
+	svrAddr := ":" + strconv.Itoa(tcpServer.Port)
+	sAddr, err := net.ResolveUDPAddr("udp", svrAddr)
 	//sAddr := tcpServer.Ip + ":" + strconv.Itoa(tcpServer.Port)
 	conn, err := net.ListenUDP("udp", sAddr)
 	defer func() {

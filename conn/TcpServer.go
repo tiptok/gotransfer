@@ -33,8 +33,9 @@ func (tcpServer *TcpServer) NewTcpServer(port, sSize, rSize int) {
 func (tcpServer *TcpServer) Start(handler TcpHandler) {
 
 	tcpServer.Handler = handler
-	sAddr, err := net.ResolveTCPAddr("tcp4", "127.0.0.1"+":"+strconv.Itoa(tcpServer.Port))
-	//sAddr := tcpServer.Ip + ":" + strconv.Itoa(tcpServer.Port)
+	svrAddr := ":" + strconv.Itoa(tcpServer.Port)
+	sAddr, err := net.ResolveTCPAddr("tcp4", svrAddr)
+	//sAddr, err := net.ResolveTCPAddr("tcp4", "127.0.0.1"+":"+strconv.Itoa(tcpServer.Port))
 	listen, err := net.Listen("tcp", sAddr.String())
 	if err != nil {
 		log.Println("Server Start Error." + err.Error())
