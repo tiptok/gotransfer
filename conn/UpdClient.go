@@ -17,7 +17,7 @@ type UpdClient struct {
 }
 
 //new tcpClient
-func (udpClient *UpdClient) NewTcpClient(ip string, port, sSize, rSize int) {
+func (udpClient *UpdClient) NewUpdClient(ip string, port, sSize, rSize int) {
 	udpClient.ServerIp = ip
 	udpClient.ServerPort = port
 	udpClient.config = &Conifg{
@@ -44,8 +44,8 @@ func (c *UpdClient) Start(handler TcpHandler) bool {
 	connector := NewConn(&client, handler, *c.config)
 	c.Conn = connector
 	c.Handler.OnConnect(connector)
-	go connector.ProcessRecv()
-	go connector.DataHandler()
-	go connector.ProcessSend()
+	//go connector.ProcessRecv()
+	//go connector.DataHandler()
+	go c.Conn.ProcessSend()
 	return true
 }

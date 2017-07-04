@@ -16,7 +16,7 @@ type UpdServer struct {
 }
 
 //new tcpServer
-func (updServer *UpdServer) NewTcpServer(port, sSize, rSize int) {
+func (updServer *UpdServer) NewUpdServer(port, sSize, rSize int) {
 	updServer.Port = port
 	updServer.config = &Conifg{
 		SendSize:    500,
@@ -30,35 +30,53 @@ func (updServer *UpdServer) NewTcpServer(port, sSize, rSize int) {
 //http://www.cnblogs.com/gaopeng527/p/6128290.html
 
 func (tcpServer *UpdServer) Start(handler TcpHandler) {
-
 	tcpServer.Handler = handler
 	sAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1"+":"+strconv.Itoa(tcpServer.Port))
 	//sAddr := tcpServer.Ip + ":" + strconv.Itoa(tcpServer.Port)
-	listen, err := net.ListenUDP("udp", sAddr)
-	defer listen.Close()
+	conn, err := net.ListenUDP("udp", sAddr)
+	defer func() {
+		conn.Close()
+		panic(err)
+	}()
 	if err != nil {
 		log.Println("udp Server Start Error." + err.Error())
+		return
 	}
-	log.Println(sAddr.String(), "Start Listen.")
-
+	log.Println(sAddr.String(), "udp Start Listen.")
+	//go tcpServer.handleClient(conn)
+	buf := make([]byte, 1024)
 	for {
-		// data := make([]byte, 1024)
-		// n, rAddr, err := listen.ReadFromUDP(data[0:])
-		// if err != nil {
-		// 	fmt.Print("Recv Conn Error.", err.Error())
-		// } else {
-		//connector := NewConn(&conn, tcpServer.Handler, *tcpServer.config)
-
-		//新连接 添加到在线列表里面
-		// if _, exists := tcpServer.Online[connector.RemoteAddress]; !exists {
-		// 	tcpServer.Online[connector.RemoteAddress] = connector
+		n, rAddr, err := conn.ReadFromUDP(buf) //rAddr
+		if err != nil {
+			return
+		}
+		//fmt.Println("Receive from client", rAddr.String(), string(buf[0:n]))
+		//_, err2 := conn.WriteToUDP([]byte("Welcome client!"), rAddr)
+		// if err2 != nil {
+		// 	return
 		// }
-
-		// tcpServer.Handler.OnConnect(connector)
-		// //go connector.ProcessRecv()
-		// go connector.DataHandler()
-		// go connector.ProcessSend()
-		//}
+		// //rAddr = "" //远程连接处理
+		if n > 0 {
+			tcpServer.Handler.OnReceive(&Connector{RemoteAddress: rAddr.String()}, TcpData{buffer: buf[:n]})
+		}
 	}
+}
 
+func (tcpServer *UpdServer) handleClient(conn *net.UDPConn) {
+	buf := make([]byte, 1024)
+	for {
+		n, rAddr, err := conn.ReadFromUDP(buf) //rAddr
+		if err != nil {
+			return
+		}
+		//fmt.Println("Receive from client", rAddr.String(), string(buf[0:n]))
+		_, err2 := conn.WriteToUDP([]byte("Welcome client!"), rAddr)
+		if err2 != nil {
+			return
+		}
+		//rAddr = "" //远程连接处理
+		if n > 0 {
+			//tcpServer.Handler.OnReceive(&Connector{RemoteAddress: rAddr.String()}, TcpData{buffer: buf[:n]})
+		}
+	}
 }

@@ -4,7 +4,7 @@
         "Pwd":"11112222"
     },
     "Server":{
-        "Port":5050,
+        "Port":5059,
         "RecvSize":500,
         "SendSize":500
     },
