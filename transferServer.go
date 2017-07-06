@@ -27,10 +27,10 @@ func main() {
 	}
 	fmt.Println(param)
 	//启动tcp服务
-	go func() {
-		srv.NewTcpServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
-		srv.Start(&transferSvrHandler{})
-	}()
+	// go func() {
+	// 	srv.NewTcpServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
+	// 	srv.Start(&transferSvrHandler{})
+	// }()
 
 	//启动upd服务
 	go func() {

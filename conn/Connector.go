@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 )
 
 //连接事件
@@ -91,6 +92,10 @@ func (connector *Connector) ReadFullData() (TcpData, error) {
 	//return TcpData{buffer: buf.Bytes()}, nil
 }
 
+func (c *Connector) Close() {
+	c.Close
+}
+
 //Connector config
 type Conifg struct {
 	SendSize    uint32
@@ -104,6 +109,7 @@ type Connector struct {
 	SendChan      chan TcpData
 	RecChan       chan TcpData
 	RemoteAddress string
+	CloseOnce     sync.Once
 }
 
 func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, srv *TcpServer
