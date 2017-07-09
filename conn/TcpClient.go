@@ -29,11 +29,17 @@ func (tcpClient *TcpClient) NewTcpClient(ip string, port, sSize, rSize int) {
 //启动tcp服务
 
 func (c *TcpClient) Start(handler TcpHandler) bool {
-
+	defer func() {
+		MyRecover()
+	}()
 	c.Handler = handler
 	sAddr, err := net.ResolveTCPAddr("tcp4", c.ServerIp+":"+strconv.Itoa(c.ServerPort))
 	//sAddr := tcpServer.Ip + ":" + strconv.Itoa(tcpServer.Port)
 	client, err := net.Dial("tcp", sAddr.String())
+	if err != nil {
+		log.Println(err.Error())
+		return false
+	}
 	c.LocalAdr = client.LocalAddr().String()
 	if err != nil {
 		log.Println("Client Start Error." + err.Error())

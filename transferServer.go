@@ -5,6 +5,8 @@ import (
 
 	"time"
 
+	"log"
+
 	comm "github.com/tiptok/gotransfer/comm"
 	conn "github.com/tiptok/gotransfer/conn"
 )
@@ -27,10 +29,10 @@ func main() {
 	}
 	fmt.Println(param)
 	//启动tcp服务
-	// go func() {
-	// 	srv.NewTcpServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
-	// 	srv.Start(&transferSvrHandler{})
-	// }()
+	go func() {
+		srv.NewTcpServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
+		srv.Start(&transferSvrHandler{})
+	}()
 
 	//启动upd服务
 	go func() {
@@ -50,6 +52,9 @@ type transferSvrHandler struct {
 }
 
 func (trans *transferSvrHandler) OnConnect(c *conn.Connector) bool {
+	defer func() {
+		conn.MyRecover()
+	}()
 	for _, srv := range param.Transfers {
 		var tcpClient conn.TcpClient
 		tcpClient.NewTcpClient(srv.Ip, srv.Port, 500, 500)
@@ -76,10 +81,13 @@ func (trans *transferSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData) bo
 			value.SendChan <- d
 		}
 	}
+	//echo
+	c.SendChan <- d
 	return true
 }
 func (trans *transferSvrHandler) OnClose(c *conn.Connector) {
 	//从列表移除
+	log.Println((*c.Conn).RemoteAddr(), "On Close.")
 }
 
 /*
@@ -93,6 +101,9 @@ func (trans *transferClinetHandler) OnConnect(c *conn.Connector) bool {
 	return true
 }
 func (trans *transferClinetHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
+	defer func() {
+		conn.MyRecover()
+	}()
 	sKey := SearchDstClient((*c.Conn).LocalAddr().String())
 	if _, ok := srv.Online[sKey]; ok {
 		//fmt.Println(TimeFormat(time.Now()), (*c.Conn).LocalAddr().String(), "Send To->", sKey, ":", string(d.Bytes()))

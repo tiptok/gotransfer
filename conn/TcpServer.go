@@ -31,7 +31,9 @@ func (tcpServer *TcpServer) NewTcpServer(port, sSize, rSize int) {
 //启动tcp服务
 
 func (tcpServer *TcpServer) Start(handler TcpHandler) {
-
+	defer func() {
+		MyRecover()
+	}()
 	tcpServer.Handler = handler
 	svrAddr := ":" + strconv.Itoa(tcpServer.Port)
 	sAddr, err := net.ResolveTCPAddr("tcp4", svrAddr)
@@ -40,7 +42,7 @@ func (tcpServer *TcpServer) Start(handler TcpHandler) {
 	if err != nil {
 		log.Println("Server Start Error." + err.Error())
 	}
-	log.Println(sAddr.String(), "Start Listen.")
+	log.Println(sAddr.String(), "Tcp Start Listen.")
 
 	for {
 		conn, err := listen.Accept()

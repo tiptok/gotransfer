@@ -12,8 +12,8 @@ import (
 //接收数据
 func (connector *Connector) ProcessRecv() {
 	defer func() {
-		recover()
-		//关闭
+		MyRecover()
+		connector.Close()
 	}()
 
 	conn := *(connector.Conn)
@@ -23,9 +23,11 @@ func (connector *Connector) ProcessRecv() {
 	for {
 		data := make([]byte, 1024)
 		length, err := conn.Read(data)
+		if err != nil {
+			panic("net conn error.")
+		}
 		tcpData := TcpData{buffer: data[:length]}
-		//tcpData, err := connector.ReadFullData()
-		if err == nil && tcpData.Lenght() > 0 {
+		if tcpData.Lenght() > 0 {
 			connector.RecChan <- tcpData
 		}
 	}
@@ -34,8 +36,8 @@ func (connector *Connector) ProcessRecv() {
 //处理数据
 func (connector *Connector) DataHandler() {
 	defer func() {
-		recover()
-		//close
+		MyRecover()
+		connector.Close()
 	}()
 
 	for {
@@ -51,15 +53,15 @@ func (connector *Connector) DataHandler() {
 //发送数据
 func (connector *Connector) ProcessSend() {
 	defer func() {
-		recover()
-		//close
+		MyRecover()
+		connector.Close()
 	}()
 	conn := *(connector.Conn)
 	for {
 		select {
 		case p := <-connector.SendChan:
 			if _, err := conn.Write(p.buffer); err != nil {
-				//close
+				return
 			}
 		}
 	}
@@ -67,9 +69,11 @@ func (connector *Connector) ProcessSend() {
 
 func (connector *Connector) ReadFullData() (TcpData, error) {
 
+	defer func() {
+		MyRecover()
+		connector.Close()
+	}()
 	conn := *(connector.Conn)
-	defer conn.Close() //关闭
-
 	buf := bytes.NewBuffer([]byte{})
 	var tcpData TcpData
 	for {
@@ -93,7 +97,13 @@ func (connector *Connector) ReadFullData() (TcpData, error) {
 }
 
 func (c *Connector) Close() {
-	c.Close
+	c.CloseOnce.Do(func() {
+		close(c.SendChan)
+		close(c.RecChan)
+		(*c.Conn).Close()
+		c.handler.OnClose(c)
+		c.IsConneted = false
+	})
 }
 
 //Connector config
@@ -110,6 +120,7 @@ type Connector struct {
 	RecChan       chan TcpData
 	RemoteAddress string
 	CloseOnce     sync.Once
+	IsConneted    bool
 }
 
 func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, srv *TcpServer
@@ -120,5 +131,6 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 		RecChan:       make(chan TcpData, config.ReceiveSize),
 		RemoteAddress: (*tcpconn).RemoteAddr().String(),
 		handler:       h,
+		IsConneted:    true,
 	}
 }
