@@ -73,7 +73,9 @@ func (trans *transferSvrHandler) OnConnect(c *conn.Connector) bool {
 }
 func (trans *transferSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
 	//fmt.Println(TimeFormat(time.Now()), c.RemoteAddress, " OnReceive Data.", string(d.Bytes()))
-
+	defer func() {
+		conn.MyRecover()
+	}()
 	sKey := c.RemoteAddress + "-1"
 	if _, ok := tcpTransferList[sKey]; ok {
 		//分发数据
@@ -82,12 +84,18 @@ func (trans *transferSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData) bo
 		}
 	}
 	//echo
-	c.SendChan <- d
+	if c.IsConneted {
+		c.SendChan <- d
+	}
 	return true
 }
 func (trans *transferSvrHandler) OnClose(c *conn.Connector) {
+	defer func() {
+		conn.MyRecover()
+	}()
 	//从列表移除
-	log.Println((*c.Conn).RemoteAddr(), "On Close.")
+	//log.Println((*c.Conn).RemoteAddr(), "On Close.")
+	log.Println(c.RemoteAddress, "On Close.")
 }
 
 /*

@@ -13,18 +13,25 @@ import (
 func (connector *Connector) ProcessRecv() {
 	defer func() {
 		MyRecover()
-		connector.Close()
+		//connector.Close()
 	}()
 
 	conn := *(connector.Conn)
-	defer conn.Close()
 	fmt.Println("New Conn->RemoteAddr:", conn.RemoteAddr())
 
 	for {
+
+		select {
+		case <-connector.ExitChan:
+			return
+		default:
+		}
 		data := make([]byte, 1024)
 		length, err := conn.Read(data)
 		if err != nil {
-			panic("net conn error.")
+			//panic("net conn error.")//?如何处理关闭
+			connector.SendChan <- TcpData{} //向写数据发送一个nil告诉即将关闭
+			return
 		}
 		tcpData := TcpData{buffer: data[:length]}
 		if tcpData.Lenght() > 0 {
@@ -42,10 +49,12 @@ func (connector *Connector) DataHandler() {
 
 	for {
 		select {
+		case <-connector.ExitChan:
+			return
 		case p := <-connector.RecChan:
 			if !(connector.handler.OnReceive(connector, p)) {
-				return
 			}
+		default:
 		}
 	}
 }
@@ -54,15 +63,23 @@ func (connector *Connector) DataHandler() {
 func (connector *Connector) ProcessSend() {
 	defer func() {
 		MyRecover()
-		connector.Close()
+		//connector.Close()
 	}()
 	conn := *(connector.Conn)
 	for {
 		select {
+		case <-connector.ExitChan:
+			return
 		case p := <-connector.SendChan:
-			if _, err := conn.Write(p.buffer); err != nil {
+			if p.buffer == nil {
+				connector.ExitChan <- 1
 				return
 			}
+			if _, err := conn.Write(p.buffer); err != nil {
+				//connector.ExitChan <- 1
+				return
+			}
+		default:
 		}
 	}
 }
@@ -121,6 +138,7 @@ type Connector struct {
 	RemoteAddress string
 	CloseOnce     sync.Once
 	IsConneted    bool
+	ExitChan      chan interface{}
 }
 
 func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, srv *TcpServer
@@ -129,6 +147,7 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 		Conn:          tcpconn,
 		SendChan:      make(chan TcpData, config.SendSize),
 		RecChan:       make(chan TcpData, config.ReceiveSize),
+		ExitChan:      make(chan interface{}),
 		RemoteAddress: (*tcpconn).RemoteAddr().String(),
 		handler:       h,
 		IsConneted:    true,
