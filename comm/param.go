@@ -1,10 +1,11 @@
 package comm
 
 type Param struct {
-	Db        Dbconfig   `json:"DB"`
-	Tcpsrv    Tcpconfig  `json:"Server"`
-	Transfers []Transfer `json:"TransferTo"`
-	HasUDP    bool       `json:"HasUDP"`
+	Db           Dbconfig   `json:"DB"`
+	Tcpsrv       Tcpconfig  `json:"Server"`
+	Transfers    []Transfer `json:"TransferTo"`
+	NeedTransfer bool       `json:"NeedTransfer"`
+	HasUDP       bool       `json:"HasUDP"`
 }
 type Dbconfig struct {
 	Userid string `json:"UserId"`

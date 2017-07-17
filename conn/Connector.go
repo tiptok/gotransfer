@@ -49,12 +49,12 @@ func (connector *Connector) DataHandler() {
 
 	for {
 		select {
-		case <-connector.ExitChan:
-			return
+		// case <-connector.ExitChan:
+		// 	return
 		case p := <-connector.RecChan:
 			if !(connector.handler.OnReceive(connector, p)) {
 			}
-		default:
+			//default:
 		}
 	}
 }
@@ -63,13 +63,12 @@ func (connector *Connector) DataHandler() {
 func (connector *Connector) ProcessSend() {
 	defer func() {
 		MyRecover()
-		//connector.Close()
 	}()
 	conn := *(connector.Conn)
 	for {
 		select {
-		case <-connector.ExitChan:
-			return
+		// case <-connector.ExitChan:
+		// 	return
 		case p := <-connector.SendChan:
 			if p.buffer == nil {
 				connector.ExitChan <- 1
@@ -79,7 +78,7 @@ func (connector *Connector) ProcessSend() {
 				//connector.ExitChan <- 1
 				return
 			}
-		default:
+			//default:
 		}
 	}
 }

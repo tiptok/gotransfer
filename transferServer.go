@@ -55,20 +55,23 @@ func (trans *transferSvrHandler) OnConnect(c *conn.Connector) bool {
 	defer func() {
 		conn.MyRecover()
 	}()
-	for _, srv := range param.Transfers {
-		var tcpClient conn.TcpClient
-		tcpClient.NewTcpClient(srv.Ip, srv.Port, 500, 500)
-		if !tcpClient.Start(&transferClinetHandler{}) {
-			continue //client 启动失败
+	if param.NeedTransfer {
+		for _, srv := range param.Transfers {
+			var tcpClient conn.TcpClient
+			tcpClient.NewTcpClient(srv.Ip, srv.Port, 500, 500)
+			if !tcpClient.Start(&transferClinetHandler{}) {
+				continue //client 启动失败
+			}
+			//tcpAddress +"-1" as tcp key
+			//已存在
+			key := c.RemoteAddress + "-1"
+			if _, ok := tcpTransferList[key]; !ok {
+				tcpTransferList[key] = make(map[string]*conn.Connector)
+			}
+			tcpTransferList[key][tcpClient.LocalAdr] = tcpClient.Conn
 		}
-		//tcpAddress +"-1" as tcp key
-		//已存在
-		key := c.RemoteAddress + "-1"
-		if _, ok := tcpTransferList[key]; !ok {
-			tcpTransferList[key] = make(map[string]*conn.Connector)
-		}
-		tcpTransferList[key][tcpClient.LocalAdr] = tcpClient.Conn
 	}
+
 	return true
 }
 func (trans *transferSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {

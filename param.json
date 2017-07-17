@@ -8,6 +8,7 @@
         "RecvSize":500,
         "SendSize":500
     },
+    "NeedTransfer":false,
     "TransferTo":[
         {
             "Ip":"127.0.0.1",
