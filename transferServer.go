@@ -15,13 +15,23 @@ var srv conn.TcpServer
 var srvUdp conn.UpdServer
 var exit chan int
 var param comm.Param
-var tcpTransferList map[string](map[string]*conn.Connector)
+var tcpTransferList map[string](map[string]conn.TcpClient)
 var udpTransList map[string](*conn.UpdClient)
 
+//timer work 定时清理
+var timerClear *time.Timer
+
+//timer work 重连
+var timerReconn *time.Timer
+
 func main() {
-	tcpTransferList = make(map[string](map[string]*conn.Connector))
+	tcpTransferList = make(map[string](map[string]conn.TcpClient))
 	udpTransList = make(map[string](*conn.UpdClient))
 	exit = make(chan int, 1)
+	/*定时清理*/
+	timerClear = time.NewTimer(time.Second * 60)
+	/*重连*/
+	timerReconn = time.NewTimer(time.Second * 60)
 	//F:/App/Go/WorkSpace/src/github.com/tiptok/gotransfer/
 	err := comm.ReadConfig(&param, "param.json")
 	if err != nil {
@@ -66,9 +76,9 @@ func (trans *transferSvrHandler) OnConnect(c *conn.Connector) bool {
 			//已存在
 			key := c.RemoteAddress + "-1"
 			if _, ok := tcpTransferList[key]; !ok {
-				tcpTransferList[key] = make(map[string]*conn.Connector)
+				tcpTransferList[key] = make(map[string]conn.TcpClient)
 			}
-			tcpTransferList[key][tcpClient.LocalAdr] = tcpClient.Conn
+			tcpTransferList[key][tcpClient.LocalAdr] = tcpClient
 		}
 	}
 
@@ -83,13 +93,13 @@ func (trans *transferSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData) bo
 	if _, ok := tcpTransferList[sKey]; ok {
 		//分发数据
 		for _, value := range tcpTransferList[sKey] {
-			value.SendChan <- d
+			(*value.Conn).SendChan <- d
 		}
 	}
 	//echo
-	if c.IsConneted {
-		c.SendChan <- d
-	}
+	// if c.IsConneted {
+	// 	c.SendChan <- d
+	// }
 	return true
 }
 func (trans *transferSvrHandler) OnClose(c *conn.Connector) {
