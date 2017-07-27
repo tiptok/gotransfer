@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"time"
 )
 
 type UpdClient struct {
@@ -34,18 +35,19 @@ func (c *UpdClient) Start(handler TcpHandler) bool {
 	sAddr, err := net.ResolveUDPAddr("udp", c.ServerIp+":"+strconv.Itoa(c.ServerPort))
 	//sAddr := tcpServer.Ip + ":" + strconv.Itoa(tcpServer.Port)
 	client, err := net.Dial("udp", sAddr.String())
-	c.LocalAdr = client.LocalAddr().String()
 	if err != nil {
 		log.Println("udp Client Start Error." + err.Error())
 		return false
 	}
+	c.LocalAdr = client.LocalAddr().String()
 	log.Println(sAddr.String(), "udp Client Start Client.")
 
 	connector := NewConn(&client, handler, *c.config)
 	c.Conn = connector
 	c.Handler.OnConnect(connector)
-	//go connector.ProcessRecv()
-	//go connector.DataHandler()
+	go connector.ProcessRecv()
+	go connector.DataHandler()
 	go c.Conn.ProcessSend()
+	time.Sleep(50)
 	return true
 }

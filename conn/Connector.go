@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"sync"
 )
@@ -21,15 +22,16 @@ func (connector *Connector) ProcessRecv() {
 
 	for {
 
-		select {
-		case <-connector.ExitChan:
-			return
-		default:
-		}
+		// select {
+		// case <-connector.ExitChan:
+		// 	return
+		// default:
+		// }
 		data := make([]byte, 1024)
 		length, err := conn.Read(data)
 		if err != nil {
-			//panic("net conn error.")//?如何处理关闭
+			//?如何处理关闭
+			log.Println(err.Error())
 			connector.SendChan <- TcpData{} //向写数据发送一个nil告诉即将关闭
 			return
 		}
@@ -71,14 +73,14 @@ func (connector *Connector) ProcessSend() {
 		// 	return
 		case p := <-connector.SendChan:
 			if p.buffer == nil {
+				//log.Println(err.Error())
 				connector.ExitChan <- 1
+				//connector.Close()
 				return
 			}
 			if _, err := conn.Write(p.buffer); err != nil {
-				//connector.ExitChan <- 1
 				return
 			}
-			//default:
 		}
 	}
 }
