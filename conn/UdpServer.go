@@ -13,6 +13,7 @@ type UpdServer struct {
 	config   *Conifg
 	protocol Protocol
 	Online   map[string]*Connector
+	Conn     *net.UDPConn
 }
 
 //new tcpServer
@@ -35,6 +36,7 @@ func (tcpServer *UpdServer) Start(handler TcpHandler) {
 	sAddr, err := net.ResolveUDPAddr("udp", svrAddr)
 	//sAddr := tcpServer.Ip + ":" + strconv.Itoa(tcpServer.Port)
 	conn, err := net.ListenUDP("udp", sAddr)
+	tcpServer.Conn = conn
 	defer func() {
 		conn.Close()
 		panic(err)
@@ -45,6 +47,7 @@ func (tcpServer *UpdServer) Start(handler TcpHandler) {
 	}
 	log.Println(sAddr.String(), "udp Start Listen.")
 	//go tcpServer.handleClient(conn)
+	//connector := NewConn(conn, handler, *tcpServer.config)
 	buf := make([]byte, 1024)
 	for {
 		n, rAddr, err := conn.ReadFromUDP(buf) //rAddr

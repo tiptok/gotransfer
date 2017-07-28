@@ -3,7 +3,6 @@ package conn
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -14,11 +13,10 @@ import (
 func (connector *Connector) ProcessRecv() {
 	defer func() {
 		MyRecover()
-		//connector.Close()
 	}()
 
 	conn := *(connector.Conn)
-	fmt.Println("New Conn->RemoteAddr:", conn.RemoteAddr())
+	//fmt.Println("New Conn->RemoteAddr:", conn.RemoteAddr())
 
 	for {
 
@@ -31,7 +29,7 @@ func (connector *Connector) ProcessRecv() {
 		length, err := conn.Read(data)
 		if err != nil {
 			//?如何处理关闭
-			log.Println(err.Error())
+			log.Println("ProcessRecv Error:", err.Error())
 			connector.SendChan <- TcpData{} //向写数据发送一个nil告诉即将关闭
 			return
 		}
@@ -51,9 +49,14 @@ func (connector *Connector) DataHandler() {
 
 	for {
 		select {
+		//修改注释
 		// case <-connector.ExitChan:
 		// 	return
-		case p := <-connector.RecChan:
+		case p, IsClose := <-connector.RecChan:
+			if !IsClose {
+				connector.Close()
+				return
+			}
 			if !(connector.handler.OnReceive(connector, p)) {
 			}
 			//default:
@@ -71,7 +74,12 @@ func (connector *Connector) ProcessSend() {
 		select {
 		// case <-connector.ExitChan:
 		// 	return
-		case p := <-connector.SendChan:
+		case p, IsClose := <-connector.SendChan:
+			if !IsClose {
+				//connector.ExitChan <- 1
+				connector.Close()
+				return
+			}
 			if p.buffer == nil {
 				//log.Println(err.Error())
 				connector.ExitChan <- 1

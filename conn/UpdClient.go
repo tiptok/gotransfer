@@ -30,7 +30,9 @@ func (udpClient *UpdClient) NewUpdClient(ip string, port, sSize, rSize int) {
 //启动tcp服务
 
 func (c *UpdClient) Start(handler TcpHandler) bool {
-
+	defer func() {
+		MyRecover()
+	}()
 	c.Handler = handler
 	sAddr, err := net.ResolveUDPAddr("udp", c.ServerIp+":"+strconv.Itoa(c.ServerPort))
 	//sAddr := tcpServer.Ip + ":" + strconv.Itoa(tcpServer.Port)
@@ -40,7 +42,7 @@ func (c *UpdClient) Start(handler TcpHandler) bool {
 		return false
 	}
 	c.LocalAdr = client.LocalAddr().String()
-	log.Println(sAddr.String(), "udp Client Start Client.")
+	log.Println(c.LocalAdr, "->", sAddr.String(), "udp Client Start Client.")
 
 	connector := NewConn(&client, handler, *c.config)
 	c.Conn = connector

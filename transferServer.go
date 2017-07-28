@@ -7,6 +7,8 @@ import (
 
 	"log"
 
+	"net"
+
 	comm "github.com/tiptok/gotransfer/comm"
 	conn "github.com/tiptok/gotransfer/conn"
 )
@@ -201,25 +203,41 @@ func (trans *transferUdpSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData)
 	address := c.RemoteAddress
 	if _, ok := udpFrom[address]; !ok {
 		udpFrom[address] = make([]*conn.UpdClient, len(param.Transfers))
-	}
-	/*发起一个新的udp连接*/
-	for index, srv := range param.Transfers {
-		var new conn.UpdClient
-		new.NewUpdClient(srv.Ip, srv.Port, 500, 500)
-		if !new.Start(&transferUpdClinetHandler{}) {
-			continue //client 启动失败
-		}
-		udpFrom[address][index] = &new
+		log.Println("当前Udp连接数:", 2*len(udpFrom))
+		/*发起一个新的udp连接*/
+		for index, srv := range param.Transfers {
+			var new conn.UpdClient
+			new.NewUpdClient(srv.Ip, srv.Port, 500, 500)
+			if !new.Start(&transferUpdClinetHandler{}) {
+				continue //client 启动失败
+			}
+			udpFrom[address][index] = &new
 
-		//添加新的映射
-		if _, ok := udpTo[new.LocalAdr]; !ok {
-			udpTo[new.LocalAdr] = c
+			//添加新的映射
+			if _, ok := udpTo[new.LocalAdr]; !ok {
+				udpTo[new.LocalAdr] = c
+			}
 		}
 	}
+
 	//分发
 	if _, ok := udpFrom[c.RemoteAddress]; ok {
+		bNeedRemove := false
 		for _, value := range udpFrom[c.RemoteAddress] {
-			value.Conn.SendChan <- d
+			if (*value.Conn).IsConneted {
+				value.Conn.SendChan <- d
+			} else {
+				bNeedRemove = true
+			}
+		}
+		//删除掉线的 从新连接
+		if bNeedRemove {
+			for _, value := range udpFrom[c.RemoteAddress] {
+				(*value.Conn).Close()
+			}
+		}
+		if bNeedRemove {
+			delete(udpFrom, c.RemoteAddress)
 		}
 	}
 	return true
@@ -245,18 +263,29 @@ func (trans *transferUpdClinetHandler) OnReceive(c *conn.Connector, d conn.TcpDa
 	sAddr := (*c.Conn).LocalAddr()
 	slocal := sAddr.String()
 	if _, ok := udpTo[slocal]; ok {
-		conn := udpTo[slocal]
-		if conn.IsConneted {
-			conn.SendChan <- d
+		c := udpTo[slocal]
+		addr, err := net.ResolveUDPAddr("udp", c.RemoteAddress)
+		if err != nil {
+			log.Println(err.Error())
+			return false
 		}
-		// for _, value := range udpFrom[c.RemoteAddress] {
-		// 	value.Conn.SendChan <- d
+		_, err = srvUdp.Conn.WriteToUDP(d.Bytes(), addr) //转发给远程udp
+		if err != nil {
+			log.Println(err.Error())
+		}
+		//log.Println(slocal, "Send To->", c.RemoteAddress, " ", conn.ToHex(d.Bytes()))
+		// if c.IsConneted {
+		// 	c.SendChan <- d
 		// }
 	}
 	return true
 }
 func (trans *transferUpdClinetHandler) OnClose(c *conn.Connector) {
+	defer func() {
+		conn.MyRecover()
+	}()
 	//从列表移除
+	fmt.Println(c.RemoteAddress, "On Close")
 }
 
 //公用方法
