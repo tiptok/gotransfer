@@ -3,9 +3,9 @@ package conn
 import (
 	"bytes"
 	"errors"
-	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 //连接事件
@@ -22,6 +22,7 @@ func (connector *Connector) ProcessRecv() {
 
 		// select {
 		// case <-connector.ExitChan:
+		// 	connector.ExitChan <- 1
 		// 	return
 		// default:
 		// }
@@ -29,10 +30,13 @@ func (connector *Connector) ProcessRecv() {
 		length, err := conn.Read(data)
 		if err != nil {
 			//?如何处理关闭
-			log.Println("ProcessRecv Error:", err.Error())
-			connector.SendChan <- TcpData{} //向写数据发送一个nil告诉即将关闭
+			//log.Println("ProcessRecv Error:", err.Error())
+			if connector.IsConneted {
+				connector.SendChan <- TcpData{} //向写数据发送一个nil告诉即将关闭
+			}
 			return
 		}
+		connector.HeartTime = time.Now() //刷新最新时间
 		tcpData := TcpData{buffer: data[:length]}
 		if tcpData.Lenght() > 0 {
 			connector.RecChan <- tcpData
@@ -44,13 +48,16 @@ func (connector *Connector) ProcessRecv() {
 func (connector *Connector) DataHandler() {
 	defer func() {
 		MyRecover()
-		connector.Close()
+		if connector != nil {
+			connector.Close()
+		}
 	}()
 
 	for {
 		select {
 		//修改注释
 		// case <-connector.ExitChan:
+		// 	connector.ExitChan <- 1
 		// 	return
 		case p, IsClose := <-connector.RecChan:
 			if !IsClose {
@@ -72,12 +79,13 @@ func (connector *Connector) ProcessSend() {
 	conn := *(connector.Conn)
 	for {
 		select {
-		// case <-connector.ExitChan:
-		// 	return
+		case <-connector.ExitChan:
+			//connector.ExitChan <- 1
+			return
 		case p, IsClose := <-connector.SendChan:
 			if !IsClose {
-				//connector.ExitChan <- 1
-				connector.Close()
+				//log.Println("Connnector Send Chan Closed...")
+				//connector.Close()
 				return
 			}
 			if p.buffer == nil {
@@ -124,6 +132,7 @@ func (connector *Connector) ReadFullData() (TcpData, error) {
 
 func (c *Connector) Close() {
 	c.CloseOnce.Do(func() {
+		c.ExitChan <- 1
 		close(c.SendChan)
 		close(c.RecChan)
 		(*c.Conn).Close()
@@ -148,6 +157,7 @@ type Connector struct {
 	CloseOnce     sync.Once
 	IsConneted    bool
 	ExitChan      chan interface{}
+	HeartTime     time.Time
 }
 
 func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, srv *TcpServer
@@ -160,5 +170,6 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 		RemoteAddress: (*tcpconn).RemoteAddr().String(),
 		handler:       h,
 		IsConneted:    true,
+		HeartTime:     time.Now(),
 	}
 }

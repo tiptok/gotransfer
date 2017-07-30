@@ -8,7 +8,7 @@ import (
 
 func MyRecover() {
 	if err := recover(); err != nil {
-		log.Println(err)
+		log.Println("On Recover", err)
 		//fmt.Println(err)
 	}
 }

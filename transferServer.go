@@ -31,6 +31,7 @@ var timerClear *time.Timer
 var timerReconn *time.Timer
 
 func main() {
+	//Test()
 	Alive = true
 	tcpTransferList = make(map[string](map[string]conn.TcpClient))
 	udpTransList = make(map[string](*conn.UpdClient))
@@ -45,7 +46,8 @@ func main() {
 	}
 	fmt.Println(param)
 	/*定时清理*/
-	timerClear = time.NewTimer(time.Second * 10)
+	timerClear = time.NewTimer(time.Second * 60)
+	go TimerClear()
 	/*重连*/
 	timerReconn = time.NewTimer(time.Second * 10)
 	//go TimerReconn()
@@ -198,7 +200,6 @@ func (trans *transferUdpSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData)
 	defer func() {
 		conn.MyRecover()
 	}()
-
 	//连接
 	address := c.RemoteAddress
 	if _, ok := udpFrom[address]; !ok {
@@ -217,12 +218,16 @@ func (trans *transferUdpSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData)
 			if _, ok := udpTo[new.LocalAdr]; !ok {
 				udpTo[new.LocalAdr] = c
 			}
+			udpTo[new.LocalAdr].HeartTime = time.Now()
 		}
 	}
 
 	//分发
 	if _, ok := udpFrom[c.RemoteAddress]; ok {
 		bNeedRemove := false
+		// if to,ok :=udpTo[udpFrom[c.RemoteAddress].LocalAdr]{
+		// 	to.HeartTime = time.Now
+		// }
 		for _, value := range udpFrom[c.RemoteAddress] {
 			if (*value.Conn).IsConneted {
 				value.Conn.SendChan <- d
@@ -285,7 +290,7 @@ func (trans *transferUpdClinetHandler) OnClose(c *conn.Connector) {
 		conn.MyRecover()
 	}()
 	//从列表移除
-	fmt.Println(c.RemoteAddress, "On Close")
+	log.Println(c.RemoteAddress, "On Close...")
 }
 
 //公用方法
