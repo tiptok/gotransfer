@@ -2,6 +2,7 @@ package conn
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net"
 	"sync"
@@ -10,9 +11,13 @@ import (
 
 //连接事件
 //接收数据
-func (connector *Connector) ProcessRecv() {
+func (connector *Connector) ProcessRecv(ctx context.Context) {
 	defer func() {
-		MyRecover()
+		//MyRecover()
+		// if connector != nil {
+		// 	connector.Close()
+		// }
+		//connector.Close()
 	}()
 
 	conn := *(connector.Conn)
@@ -20,12 +25,11 @@ func (connector *Connector) ProcessRecv() {
 
 	for {
 
-		// select {
-		// case <-connector.ExitChan:
-		// 	connector.ExitChan <- 1
-		// 	return
-		// default:
-		// }
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		data := make([]byte, 1024)
 		length, err := conn.Read(data)
 		if err != nil {
@@ -34,6 +38,7 @@ func (connector *Connector) ProcessRecv() {
 			if connector.IsConneted {
 				connector.SendChan <- TcpData{} //向写数据发送一个nil告诉即将关闭
 			}
+			connector.Close()
 			return
 		}
 		connector.HeartTime = time.Now() //刷新最新时间
@@ -45,12 +50,13 @@ func (connector *Connector) ProcessRecv() {
 }
 
 //处理数据
-func (connector *Connector) DataHandler() {
+func (connector *Connector) DataHandler(ctx context.Context) {
 	defer func() {
-		MyRecover()
-		if connector != nil {
-			connector.Close()
-		}
+		// MyRecover()
+		// if connector != nil {
+		// 	connector.Close()
+		// }
+		//connector.Close()
 	}()
 
 	for {
@@ -59,6 +65,8 @@ func (connector *Connector) DataHandler() {
 		// case <-connector.ExitChan:
 		// 	connector.ExitChan <- 1
 		// 	return
+		case <-ctx.Done():
+			return
 		case p, IsClose := <-connector.RecChan:
 			if !IsClose {
 				connector.Close()
@@ -66,26 +74,27 @@ func (connector *Connector) DataHandler() {
 			}
 			if !(connector.handler.OnReceive(connector, p)) {
 			}
-			//default:
 		}
 	}
 }
 
 //发送数据
-func (connector *Connector) ProcessSend() {
+func (connector *Connector) ProcessSend(ctx context.Context) {
 	defer func() {
-		MyRecover()
+		//MyRecover()
+		//connector.Close()
 	}()
 	conn := *(connector.Conn)
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case <-connector.ExitChan:
-			//connector.ExitChan <- 1
 			return
 		case p, IsClose := <-connector.SendChan:
 			if !IsClose {
 				//log.Println("Connnector Send Chan Closed...")
-				//connector.Close()
+				connector.Close()
 				return
 			}
 			if p.buffer == nil {
@@ -104,8 +113,8 @@ func (connector *Connector) ProcessSend() {
 func (connector *Connector) ReadFullData() (TcpData, error) {
 
 	defer func() {
-		MyRecover()
-		connector.Close()
+		//MyRecover()
+		//connector.Close()
 	}()
 	conn := *(connector.Conn)
 	buf := bytes.NewBuffer([]byte{})
@@ -127,17 +136,17 @@ func (connector *Connector) ReadFullData() (TcpData, error) {
 		}
 		buf.Write(data[:length])
 	}
-	//return TcpData{buffer: buf.Bytes()}, nil
 }
 
 func (c *Connector) Close() {
 	c.CloseOnce.Do(func() {
-		c.ExitChan <- 1
 		close(c.SendChan)
 		close(c.RecChan)
-		(*c.Conn).Close()
 		c.handler.OnClose(c)
+		(*c.Conn).Close()
 		c.IsConneted = false
+		c.cancelFunc()
+		c.ExitChan <- 1
 	})
 }
 
@@ -158,10 +167,15 @@ type Connector struct {
 	IsConneted    bool
 	ExitChan      chan interface{}
 	HeartTime     time.Time
+	//取消
+	cancelFunc context.CancelFunc
+	/*剩余包数据*/
+	Leftbuf *bytes.Buffer
+	P       Protocol
 }
 
 func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, srv *TcpServer
-	return &Connector{
+	c := &Connector{
 		//srv:           srv,
 		Conn:          tcpconn,
 		SendChan:      make(chan TcpData, config.SendSize),
@@ -171,5 +185,16 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 		handler:       h,
 		IsConneted:    true,
 		HeartTime:     time.Now(),
+		Leftbuf:       bytes.NewBuffer([]byte{}),
 	}
+	// c.ctx = context.Background()
+	// ctx, cancel := context.WithCancel(c.ctx)
+	// c.ctx = ctx
+	// c.cancelFunc = cancel
+	return c
+}
+
+/*写入剩余数据*/
+func (c *Connector) WriteLeftData(leftdata []byte) (int, error) {
+	return c.Leftbuf.Write(leftdata)
 }

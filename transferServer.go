@@ -50,18 +50,21 @@ func main() {
 	go TimerClear()
 	/*重连*/
 	timerReconn = time.NewTimer(time.Second * 10)
+	/*日志模块*/
+	comm.Config("E:\\Logs\\goTransferLog", 3)
+
 	//go TimerReconn()
 	//启动tcp服务
-	// go func() {
-	// 	srv.NewTcpServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
-	// 	srv.Start(&transferSvrHandler{})
-	// }()
+	go func() {
+		srv.NewTcpServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
+		srv.Start(&transferSvrHandler{})
+	}()
 
 	//启动upd服务
-	go func() {
-		srvUdp.NewUpdServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
-		srvUdp.Start(&transferUdpSvrHandler{})
-	}()
+	// go func() {
+	// 	srvUdp.NewUpdServer(param.Tcpsrv.Port, param.Tcpsrv.Sendsize, param.Tcpsrv.Recvsize)
+	// 	srvUdp.Start(&transferUdpSvrHandler{})
+	// }()
 
 	<-exit
 	fmt.Println("App Stop.")
@@ -76,8 +79,9 @@ type transferSvrHandler struct {
 
 func (trans *transferSvrHandler) OnConnect(c *conn.Connector) bool {
 	defer func() {
-		conn.MyRecover()
+		//conn.MyRecover()
 	}()
+	log.Println(c.RemoteAddress, "On OnConnect.")
 	if param.NeedTransfer {
 		for _, srv := range param.Transfers {
 			var tcpClient conn.TcpClient
@@ -94,34 +98,35 @@ func (trans *transferSvrHandler) OnConnect(c *conn.Connector) bool {
 			tcpTransferList[key][tcpClient.LocalAdr] = tcpClient
 		}
 	}
-
 	return true
 }
 func (trans *transferSvrHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
-	//fmt.Println(TimeFormat(time.Now()), c.RemoteAddress, " OnReceive Data.", string(d.Bytes()))
+	fmt.Println(TimeFormat(time.Now()), c.RemoteAddress, " OnReceive Data.", string(d.Bytes()))
+	comm.Debugf(" OnReceive Data.", string(d.Bytes()))
 	defer func() {
 		conn.MyRecover()
 	}()
-	sKey := c.RemoteAddress + "-1"
-	if _, ok := tcpTransferList[sKey]; ok {
-		//分发数据
-		for _, value := range tcpTransferList[sKey] {
-			(*value.Conn).SendChan <- d
-		}
-	}
-	//echo
-	// if c.IsConneted {
-	// 	c.SendChan <- d
+	// sKey := c.RemoteAddress + "-1"
+	// if _, ok := tcpTransferList[sKey]; ok {
+	// 	//分发数据
+	// 	for _, value := range tcpTransferList[sKey] {
+	// 		(*value.Conn).SendChan <- d
+	// 	}
 	// }
+	//echo
+
+	if c.IsConneted {
+		c.SendChan <- d
+	}
 	return true
 }
 func (trans *transferSvrHandler) OnClose(c *conn.Connector) {
 	defer func() {
-		conn.MyRecover()
+		//conn.MyRecover()
 	}()
 	//从列表移除
-	DoColse(c)
-	//log.Println((*c.Conn).RemoteAddr(), "On Close.")
+	//DoColse(c)
+
 	log.Println(c.RemoteAddress, "On Close.")
 }
 func DoColse(c *conn.Connector) {

@@ -1,6 +1,7 @@
 package conn
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -9,12 +10,12 @@ import (
 
 //server
 type TcpServer struct {
-	Port     int
-	Conn     []Connector
-	Handler  TcpHandler
-	config   *Conifg
-	protocol Protocol
-	Online   map[string]*Connector
+	Port    int
+	Conn    []Connector
+	Handler TcpHandler
+	config  *Conifg
+	P       Protocol
+	Online  map[string]*Connector
 }
 
 //new tcpServer
@@ -32,7 +33,7 @@ func (tcpServer *TcpServer) NewTcpServer(port, sSize, rSize int) {
 
 func (tcpServer *TcpServer) Start(handler TcpHandler) {
 	defer func() {
-		MyRecover()
+		//MyRecover()
 	}()
 	tcpServer.Handler = handler
 	svrAddr := ":" + strconv.Itoa(tcpServer.Port)
@@ -49,19 +50,20 @@ func (tcpServer *TcpServer) Start(handler TcpHandler) {
 		if err != nil {
 			fmt.Print("Recv Conn Error.", err.Error())
 		} else {
-			//tcpconn ? netconn?
-			//tcpServer.Conn = append(tcpServer.Conn, conn)
 			connector := NewConn(&conn, tcpServer.Handler, *tcpServer.config)
-
+			connector.P = tcpServer.P
 			//新连接 添加到在线列表里面
 			if _, exists := tcpServer.Online[connector.RemoteAddress]; !exists {
 				tcpServer.Online[connector.RemoteAddress] = connector
 			}
-
+			ctx := context.Background()
+			ctx, cancel := context.WithCancel(ctx)
+			//传递 cancel
+			connector.cancelFunc = cancel
 			tcpServer.Handler.OnConnect(connector)
-			go connector.ProcessRecv()
-			go connector.DataHandler()
-			go connector.ProcessSend()
+			go connector.ProcessRecv(ctx)
+			go connector.DataHandler(ctx)
+			go connector.ProcessSend(ctx)
 		}
 	}
 
