@@ -1,6 +1,9 @@
 package comm
 
 import (
+	"strconv"
+	"bytes"
+	"errors"
 	"encoding/binary"
 	"encoding/hex"
 )
@@ -65,4 +68,59 @@ func (binaryHelper) GetBCDString(value string) ([]byte, error) {
 */
 func (binaryHelper) CloneRange(value []byte, startIndex int32, length int32) []byte {
 	return value[startIndex : startIndex+length]
+}
+
+/*
+	转义808字符
+	0x7d 0x01 -> 0x7e
+	0x7d 0x02 -> 0x7d
+*/
+func(binaryHelper)Byte808Descape(value []byte,startIndex int, length int)([]byte,error){
+	ilength := len(value)
+	if (startIndex+length)>ilength{
+		return nil,errors.New("长度不足，下标越界")
+	}	
+	buf :=new(bytes.Buffer)
+	/*去头去尾*/
+	for i:=startIndex+1;i<ilength-1;i++{
+		if value[i]!=0x7D || i==ilength-2{
+			buf.WriteByte(value[i])
+		}else if value[i+1]==0x02{
+			buf.WriteByte(0x7e)
+			i++
+		}else if value[i+1]==0x01{
+			buf.WriteByte(0x7d)
+			i++
+		}else{
+			return nil,errors.New("终端数据包含非法转义字符7D:"+strconv.Itoa(int(value[i+1])))
+		}
+
+	}	
+	return buf.Bytes(),nil
+}
+/*
+	转义808字符
+	0x7e -> 0x7d 0x01 
+	0x7d -> 0x7d 0x02
+*/
+func(binaryHelper)Byte808Enscape(value[]byte,startIndex int, length int)([]byte){
+	ilength := len(value)
+	if (startIndex+length)>ilength{
+		
+	}
+	buf :=new(bytes.Buffer)
+	buf.WriteByte(0x7e)
+	for i:=startIndex;i<ilength;i++{
+		if value[i]==0x7D{
+			buf.WriteByte(0x7d)
+			buf.WriteByte(0x01)
+		}else if value[i]==0x7e{
+			buf.WriteByte(0x7d)
+			buf.WriteByte(0x02)
+		}else{
+			buf.WriteByte(value[i])
+		}
+	}
+	buf.WriteByte(0x7e)	
+	return buf.Bytes()
 }

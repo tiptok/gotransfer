@@ -22,3 +22,16 @@ func TestToASCIIString(t *testing.T) {
 	log.Println(BinaryHelper.GetASCIIString("123"))
 	t.Log("end")
 }
+
+func TestByte808Descape(t *testing.T){
+	data := []byte{0x7e,0x30,0x7d,0x02,0x08,0x7d,0x01,0x7d,0x02,0x7e} 
+	dDsp,err := BinaryHelper.Byte808Descape(data,0,len(data))
+	if err!=nil{
+		log.Println(err.Error())
+	}else{
+		log.Println(BinaryHelper.ToBCDString(dDsp,0,int32(len(dDsp))))
+	}
+	dEsp := BinaryHelper.Byte808Enscape(dDsp,0,len(dDsp))
+	log.Println(BinaryHelper.ToBCDString(dEsp,0,int32(len(dEsp))))
+	t.Log("end")
+}

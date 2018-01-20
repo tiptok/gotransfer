@@ -24,7 +24,7 @@ type Protocol interface {
 		leftdata 解析剩余报文的数据
 		err 	 分包错误
 	*/
-	ParseMsg(data []byte, c *Connector) (packdata []byte, leftdata []byte, err error)
+	ParseMsg(data []byte, c *Connector) (packdata [][]byte, leftdata []byte, err error)
 	/*
 		解析数据
 		obj 解析出对应得数据结构
