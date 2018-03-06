@@ -33,7 +33,9 @@ func (tcpServer *TcpServer) NewTcpServer(port, sSize, rSize int) {
 
 func (tcpServer *TcpServer) Start(handler TcpHandler) {
 	defer func() {
-		//MyRecover()
+		if err := recover(); err != nil {
+			log.Println(err)
+		}
 	}()
 	tcpServer.Handler = handler
 	svrAddr := ":" + strconv.Itoa(tcpServer.Port)

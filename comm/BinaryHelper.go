@@ -18,7 +18,6 @@ type binaryHelper struct{}
 func (binaryHelper) ToInt16(value []byte, startIndex int32) int16 {
 	return int16(binary.BigEndian.Uint16(value[startIndex:]))
 }
-
 /*
 	bytes to int32
 */
@@ -32,7 +31,15 @@ func (binaryHelper) ToInt32(value []byte, startIndex int32) int32 {
 func (binaryHelper) ToInt64(value []byte, startIndex int32) int64 {
 	return int64(binary.BigEndian.Uint64(value[startIndex:]))
 }
-
+/*
+	int16 to bytes 小端
+*/
+func(binaryHelper) Int16ToBytes(value int16)[]byte{
+	var rsp = make([]byte,2)
+	rsp[0] =byte((value>>8) & 0xFF) 
+	rsp[1] =byte(value & 0xFF)
+	return rsp
+}
 /*
 	bytes to ASCII String 解码
 	31 32 33 34 35 36
@@ -123,4 +130,18 @@ func(binaryHelper)Byte808Enscape(value[]byte,startIndex int, length int)([]byte)
 	}
 	buf.WriteByte(0x7e)	
 	return buf.Bytes()
+}
+
+
+/*CRC Check*/
+func(binaryHelper)CRCCheck(value []byte) bool{
+	bCRC :=byte(0x00)
+	for i:=0;i<len(value)-1;i++{
+		bCRC ^= value[i]
+	}
+	if bCRC == value[len(value)-1]{
+		return true
+	}else{
+		return false
+	}
 }

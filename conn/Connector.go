@@ -7,17 +7,16 @@ import (
 	"net"
 	"sync"
 	"time"
+	"log"
 )
 
 //连接事件
 //接收数据
 func (connector *Connector) ProcessRecv(ctx context.Context) {
 	defer func() {
-		//MyRecover()
-		// if connector != nil {
-		// 	connector.Close()
-		// }
-		//connector.Close()
+		if err := recover(); err != nil {
+			log.Println(err)
+		}
 	}()
 
 	conn := *(connector.Conn)
@@ -52,11 +51,9 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 //处理数据
 func (connector *Connector) DataHandler(ctx context.Context) {
 	defer func() {
-		// MyRecover()
-		// if connector != nil {
-		// 	connector.Close()
-		// }
-		//connector.Close()
+		if err := recover(); err != nil {
+			log.Println(err)
+		}
 	}()
 
 	for {
@@ -81,8 +78,9 @@ func (connector *Connector) DataHandler(ctx context.Context) {
 //发送数据
 func (connector *Connector) ProcessSend(ctx context.Context) {
 	defer func() {
-		//MyRecover()
-		//connector.Close()
+		if err := recover(); err != nil {
+			log.Println(err)
+		}
 	}()
 	conn := *(connector.Conn)
 	for {
@@ -98,9 +96,7 @@ func (connector *Connector) ProcessSend(ctx context.Context) {
 				return
 			}
 			if p.buffer == nil {
-				//log.Println(err.Error())
 				connector.ExitChan <- 1
-				//connector.Close()
 				return
 			}
 			if _, err := conn.Write(p.buffer); err != nil {
@@ -113,8 +109,9 @@ func (connector *Connector) ProcessSend(ctx context.Context) {
 func (connector *Connector) ReadFullData() (TcpData, error) {
 
 	defer func() {
-		//MyRecover()
-		//connector.Close()
+		if err := recover(); err != nil {
+			log.Println(err)
+		}
 	}()
 	conn := *(connector.Conn)
 	buf := bytes.NewBuffer([]byte{})
@@ -140,12 +137,15 @@ func (connector *Connector) ReadFullData() (TcpData, error) {
 
 func (c *Connector) Close() {
 	c.CloseOnce.Do(func() {
+		c.cancelFunc()
 		close(c.SendChan)
 		close(c.RecChan)
-		c.handler.OnClose(c)
-		(*c.Conn).Close()
 		c.IsConneted = false
-		c.cancelFunc()
+		err:=(*c.Conn).Close()
+		c.handler.OnClose(c)
+		if err!=nil{
+			log.Println("Close Exception:",err)
+		}
 		c.ExitChan <- 1
 	})
 }
