@@ -117,7 +117,7 @@ func (connector *Connector) ReadFullData() (TcpData, error) {
 	buf := bytes.NewBuffer([]byte{})
 	var tcpData TcpData
 	for {
-		data := make([]byte, 1024)
+		//data := make([]byte, 1024)
 		length, err := buf.ReadFrom(conn)
 		if err != nil {
 			return tcpData, err
@@ -130,7 +130,7 @@ func (connector *Connector) ReadFullData() (TcpData, error) {
 				return tcpData, errors.New("Read Data None")
 			}
 		}
-		buf.Write(data[:length])
+		//buf.Write(data[:length])
 	}
 }
 
