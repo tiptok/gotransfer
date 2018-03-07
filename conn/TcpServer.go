@@ -15,7 +15,7 @@ type TcpServer struct {
 	Handler TcpHandler
 	config  *Conifg
 	P       Protocol
-	Online  map[string]*Connector
+	//Online  map[string]*Connector
 }
 
 //new tcpServer
@@ -26,7 +26,7 @@ func (tcpServer *TcpServer) NewTcpServer(port, sSize, rSize int) {
 		ReceiveSize: 500,
 	}
 	//tcpServer.Conn = make([]Connector, 500)
-	tcpServer.Online = make(map[string]*Connector)
+	//tcpServer.Online = make(map[string]*Connector)
 }
 
 //启动tcp服务
@@ -55,9 +55,9 @@ func (tcpServer *TcpServer) Start(handler TcpHandler) {
 			connector := NewConn(&conn, tcpServer.Handler, *tcpServer.config)
 			connector.P = tcpServer.P
 			//新连接 添加到在线列表里面
-			if _, exists := tcpServer.Online[connector.RemoteAddress]; !exists {
-				tcpServer.Online[connector.RemoteAddress] = connector
-			}
+			// if _, exists := tcpServer.Online[connector.RemoteAddress]; !exists {
+			// 	tcpServer.Online[connector.RemoteAddress] = connector
+			// }
 			ctx := context.Background()
 			ctx, cancel := context.WithCancel(ctx)
 			//传递 cancel

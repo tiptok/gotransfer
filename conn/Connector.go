@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log"
 	"net"
 	"sync"
 	"time"
-	"log"
 )
 
 //连接事件
@@ -118,9 +118,8 @@ func (connector *Connector) ReadFullData() (TcpData, error) {
 	var tcpData TcpData
 	for {
 		data := make([]byte, 1024)
-		length, err := conn.Read(data)
+		length, err := buf.ReadFrom(conn)
 		if err != nil {
-			//fmt.Println(conn.RemoteAddr(), " Error reading.", err.Error())
 			return tcpData, err
 		}
 		if length == 0 {
@@ -141,10 +140,10 @@ func (c *Connector) Close() {
 		close(c.SendChan)
 		close(c.RecChan)
 		c.IsConneted = false
-		err:=(*c.Conn).Close()
+		err := (*c.Conn).Close()
 		c.handler.OnClose(c)
-		if err!=nil{
-			log.Println("Close Exception:",err)
+		if err != nil {
+			log.Println("Close Exception:", err)
 		}
 		c.ExitChan <- 1
 	})
