@@ -20,8 +20,8 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 	}()
 
 	conn := *(connector.Conn)
-	//fmt.Println("New Conn->RemoteAddr:", conn.RemoteAddr())
-
+	rb := new(bytes.Buffer)
+	data := make([]byte, 1024)
 	for {
 
 		select {
@@ -29,11 +29,10 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 			return
 		default:
 		}
-		data := make([]byte, 1024)
 		length, err := conn.Read(data)
+		//length, err := rb.ReadFrom(conn)
 		if err != nil {
 			//?如何处理关闭
-			//log.Println("ProcessRecv Error:", err.Error())
 			if connector.IsConneted {
 				connector.SendChan <- TcpData{} //向写数据发送一个nil告诉即将关闭
 			}
@@ -42,9 +41,11 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 		}
 		connector.HeartTime = time.Now() //刷新最新时间
 		tcpData := TcpData{buffer: data[:length]}
-		if tcpData.Lenght() > 0 {
+		if length > 0 {
+			//tcpData := TcpData{buffer: rb.Bytes()}
 			connector.RecChan <- tcpData
 		}
+		rb.Reset()
 	}
 }
 
@@ -140,11 +141,8 @@ func (c *Connector) Close() {
 		close(c.SendChan)
 		close(c.RecChan)
 		c.IsConneted = false
-		err := (*c.Conn).Close()
 		c.handler.OnClose(c)
-		if err != nil {
-			log.Println("Close Exception:", err)
-		}
+		(*c.Conn).Close()
 		c.ExitChan <- 1
 	})
 }
