@@ -85,6 +85,9 @@ type TcpData struct {
 	buffer []byte
 }
 
+func NewTcpData(d []byte) TcpData {
+	return TcpData{buffer: d}
+}
 func (d TcpData) Bytes() []byte {
 	return d.buffer
 }

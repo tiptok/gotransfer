@@ -1,6 +1,7 @@
 package conn
 
 import (
+	"context"
 	"log"
 	"net"
 	"strconv"
@@ -46,9 +47,12 @@ func (c *UpdClient) Start(handler TcpHandler) bool {
 	connector := NewConn(&client, handler, *c.config)
 	c.Conn = connector
 	c.Handler.OnConnect(connector)
-	// go connector.ProcessRecv()
-	// go connector.DataHandler()
-	// go c.Conn.ProcessSend()
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	connector.cancelFunc = cancel
+	go connector.ProcessRecv(ctx)
+	go connector.DataHandler(ctx)
+	go c.Conn.ProcessSend(ctx)
 	time.Sleep(10)
 	return true
 }

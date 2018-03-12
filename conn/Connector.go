@@ -191,6 +191,16 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 	return c
 }
 
+/*
+	连接的本地Address
+*/
+func (c *Connector) LocalAddr() (net.Addr, error) {
+	if !c.IsConneted {
+		return nil, errors.New("Connector Closed.")
+	}
+	return (*c.Conn).LocalAddr(), nil
+}
+
 /*写入剩余数据*/
 func (c *Connector) WriteLeftData(leftdata []byte) (int, error) {
 	return c.Leftbuf.Write(leftdata)

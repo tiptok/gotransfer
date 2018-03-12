@@ -84,3 +84,13 @@ func (tcpServer *UpdServer) handleClient(conn *net.UDPConn) {
 		}
 	}
 }
+
+/*向upd client 发送数据*/
+func (tcpServer *UpdServer) SendToClient(udpAdr string, d TcpData) (int, error) {
+	addr, err := net.ResolveUDPAddr("udp", udpAdr)
+	if err != nil {
+		return 0, err
+	}
+	n, err := tcpServer.Conn.WriteToUDP(d.Bytes(), addr) //转发给远程udp
+	return n, err
+}
