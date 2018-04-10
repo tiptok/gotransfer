@@ -39,17 +39,13 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 			connector.Close()
 			return
 		}
-		connector.HeartTime = time.Now() //刷新最新时间
-		tcpData := TcpData{buffer: data[:length]}
-		if length > 0 {
-			//tcpData := TcpData{buffer: rb.Bytes()}
-			connector.RecChan <- tcpData
-		}
+		connector.RefreshTime() //刷新最新时间
+		err = connector.parsePart(data[:length])
 		rb.Reset()
 	}
 }
 
-//处理数据
+//DataHandler 处理数据
 func (connector *Connector) DataHandler(ctx context.Context) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -76,7 +72,7 @@ func (connector *Connector) DataHandler(ctx context.Context) {
 	}
 }
 
-//发送数据
+//ProcessSend 发送数据
 func (connector *Connector) ProcessSend(ctx context.Context) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -107,6 +103,7 @@ func (connector *Connector) ProcessSend(ctx context.Context) {
 	}
 }
 
+//ReadFullData 读取数据
 func (connector *Connector) ReadFullData() (TcpData, error) {
 
 	defer func() {
@@ -135,6 +132,7 @@ func (connector *Connector) ReadFullData() (TcpData, error) {
 	}
 }
 
+//Close connector on close
 func (c *Connector) Close() {
 	c.CloseOnce.Do(func() {
 		c.cancelFunc()
@@ -147,12 +145,15 @@ func (c *Connector) Close() {
 	})
 }
 
-//Connector config
+//Conifg connector config
 type Conifg struct {
-	SendSize    uint32
-	ReceiveSize uint32
+	SendSize        uint32
+	ReceiveSize     uint32
+	IsParsePartMsg  bool //是否对接收到的数据进行分包处理
+	IsParseToEntity bool //是否解析为实体
 }
 
+//Connector  conn
 type Connector struct {
 	//srv           *TcpServer
 	Conn          *net.Conn
@@ -164,6 +165,7 @@ type Connector struct {
 	IsConneted    bool
 	ExitChan      chan interface{}
 	HeartTime     time.Time
+	Config        Conifg
 	//取消
 	cancelFunc context.CancelFunc
 	/*剩余包数据*/
@@ -171,6 +173,7 @@ type Connector struct {
 	P       Protocol
 }
 
+//NewConn new Connector
 func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, srv *TcpServer
 	c := &Connector{
 		//srv:           srv,
@@ -182,6 +185,7 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 		handler:       h,
 		IsConneted:    true,
 		HeartTime:     time.Now(),
+		Config:        config,
 		Leftbuf:       bytes.NewBuffer([]byte{}),
 	}
 	// c.ctx = context.Background()
@@ -191,9 +195,7 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 	return c
 }
 
-/*
-	连接的本地Address
-*/
+//LocalAddr	连接的本地Address
 func (c *Connector) LocalAddr() (net.Addr, error) {
 	if !c.IsConneted {
 		return nil, errors.New("Connector Closed.")
@@ -204,4 +206,76 @@ func (c *Connector) LocalAddr() (net.Addr, error) {
 /*写入剩余数据*/
 func (c *Connector) WriteLeftData(leftdata []byte) (int, error) {
 	return c.Leftbuf.Write(leftdata)
+}
+
+//RefreshTime 刷新心跳时间
+func (connector *Connector) RefreshTime() {
+	connector.HeartTime = time.Now() //刷新最新时间
+}
+
+//parsePart 解析分包数据
+func (connector *Connector) parsePart(data []byte) (err error) {
+	isParsePart := connector.Config.IsParsePartMsg
+	if connector.P == nil {
+		isParsePart = false //未定义协议,不进行分包处理
+	}
+	//需要解析分包
+	if isParsePart {
+		//将新接收到的数据追加的上一次解析剩余的
+		connector.WriteLeftData(data)
+		//AddLeft := connector.Leftbuf
+		packdata, leftdata, err := connector.P.ParseMsg(connector.Leftbuf.Bytes(), connector)
+		connector.Leftbuf.Reset() //LeftBuf置空
+		if err != nil {
+			return err
+		}
+
+		/*解析完整包*/
+		if packdata != nil {
+			for i := 0; i < len(packdata); i++ {
+				if len(packdata[i]) <= 0 {
+					continue
+				}
+				err = connector.parseToEntity(packdata[i]) //发送给接收
+			}
+		} else {
+			err = errors.New("parsePart 未解析出数据包")
+		}
+		if leftdata != nil && len(leftdata) > 0 {
+			_, err = connector.WriteLeftData(leftdata)
+			//log.Println("Left Data:", comm.BinaryHelper.ToBCDString(leftdata, 0, int32(len(leftdata))), connector.Leftbuf.Len())
+		}
+	} else {
+		err = connector.parseToEntity(data)
+	}
+	return err
+}
+
+//parseToEntity 解析数据到实体
+func (connector *Connector) parseToEntity(data []byte) (err error) {
+	// isParseToEntity := connector.Config.IsParseToEntity
+	// if connector.P == nil {
+	// 	isParseToEntity = false //未定义协议,不进行分包处理
+	// }
+	//是否解析为实体
+	// if isParseToEntity {
+	// 	_, err = connector.P.Parse(data) //entity
+	// 	//传递 entity
+	// } else {
+	// 	tcpData := TcpData{buffer: data}
+	// 	connector.RecChan <- tcpData //发送给接收
+	// }
+	tcpData := TcpData{buffer: data}
+	connector.RecChan <- tcpData //发送给接收
+	return err
+}
+
+//ParseToEntity  parse data to entity
+func (connector *Connector) ParseToEntity(data []byte) (entity interface{}, err error) {
+	if connector.P == nil {
+		err = errors.New("ParseToEntity Error:未定义协议")
+		return nil, err
+	}
+	entity, err = connector.P.Parse(data) //entity
+	return entity, err
 }

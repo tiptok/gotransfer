@@ -13,7 +13,7 @@ type TcpServer struct {
 	Port    int
 	Conn    []Connector
 	Handler TcpHandler
-	config  *Conifg
+	Config  *Conifg
 	P       Protocol
 	//Online  map[string]*Connector
 }
@@ -21,7 +21,7 @@ type TcpServer struct {
 //new tcpServer
 func (tcpServer *TcpServer) NewTcpServer(port, sSize, rSize int) {
 	tcpServer.Port = port
-	tcpServer.config = &Conifg{
+	tcpServer.Config = &Conifg{
 		SendSize:    500,
 		ReceiveSize: 500,
 	}
@@ -52,7 +52,7 @@ func (tcpServer *TcpServer) Start(handler TcpHandler) {
 		if err != nil {
 			fmt.Print("Recv Conn Error.", err.Error())
 		} else {
-			connector := NewConn(&conn, tcpServer.Handler, *tcpServer.config)
+			connector := NewConn(&conn, tcpServer.Handler, *tcpServer.Config)
 			connector.P = tcpServer.P
 			//新连接 添加到在线列表里面
 			// if _, exists := tcpServer.Online[connector.RemoteAddress]; !exists {
@@ -94,4 +94,14 @@ func (d TcpData) Bytes() []byte {
 
 func (d TcpData) Lenght() int {
 	return len(d.buffer)
+}
+
+/*统一Server接口*/
+type ITcpServer interface {
+	Start() bool
+	Stop() bool
+}
+
+type TcpServerBase struct {
+	Server TcpServer
 }

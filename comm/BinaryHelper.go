@@ -1,11 +1,11 @@
 package comm
 
 import (
-	"strconv"
 	"bytes"
-	"errors"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
+	"strconv"
 )
 
 var BinaryHelper binaryHelper
@@ -18,6 +18,7 @@ type binaryHelper struct{}
 func (binaryHelper) ToInt16(value []byte, startIndex int32) int16 {
 	return int16(binary.BigEndian.Uint16(value[startIndex:]))
 }
+
 /*
 	bytes to int32
 */
@@ -31,15 +32,17 @@ func (binaryHelper) ToInt32(value []byte, startIndex int32) int32 {
 func (binaryHelper) ToInt64(value []byte, startIndex int32) int64 {
 	return int64(binary.BigEndian.Uint64(value[startIndex:]))
 }
+
 /*
 	int16 to bytes 小端
 */
-func(binaryHelper) Int16ToBytes(value int16)[]byte{
-	var rsp = make([]byte,2)
-	rsp[0] =byte((value>>8) & 0xFF) 
-	rsp[1] =byte(value & 0xFF)
+func (binaryHelper) Int16ToBytes(value int16) []byte {
+	var rsp = make([]byte, 2)
+	rsp[0] = byte((value >> 8) & 0xFF)
+	rsp[1] = byte(value & 0xFF)
 	return rsp
 }
+
 /*
 	bytes to ASCII String 解码
 	31 32 33 34 35 36
@@ -82,66 +85,84 @@ func (binaryHelper) CloneRange(value []byte, startIndex int32, length int32) []b
 	0x7d 0x01 -> 0x7e
 	0x7d 0x02 -> 0x7d
 */
-func(binaryHelper)Byte808Descape(value []byte,startIndex int, length int)([]byte,error){
+func (binaryHelper) Byte808Descape(value []byte, startIndex int, length int) ([]byte, error) {
 	ilength := len(value)
-	if (startIndex+length)>ilength{
-		return nil,errors.New("长度不足，下标越界")
-	}	
-	buf :=new(bytes.Buffer)
+	if (startIndex + length) > ilength {
+		return nil, errors.New("长度不足，下标越界")
+	}
+	buf := new(bytes.Buffer)
 	/*去头去尾*/
-	for i:=startIndex+1;i<ilength-1;i++{
-		if value[i]!=0x7D || i==ilength-2{
+	for i := startIndex + 1; i < ilength-1; i++ {
+		if value[i] != 0x7D || i == ilength-2 {
 			buf.WriteByte(value[i])
-		}else if value[i+1]==0x02{
+		} else if value[i+1] == 0x02 {
 			buf.WriteByte(0x7e)
 			i++
-		}else if value[i+1]==0x01{
+		} else if value[i+1] == 0x01 {
 			buf.WriteByte(0x7d)
 			i++
-		}else{
-			return nil,errors.New("终端数据包含非法转义字符7D:"+strconv.Itoa(int(value[i+1])))
+		} else {
+			return nil, errors.New("终端数据包含非法转义字符7D:" + strconv.Itoa(int(value[i+1])))
 		}
 
-	}	
-	return buf.Bytes(),nil
+	}
+	return buf.Bytes(), nil
 }
+
 /*
 	转义808字符
-	0x7e -> 0x7d 0x01 
+	0x7e -> 0x7d 0x01
 	0x7d -> 0x7d 0x02
 */
-func(binaryHelper)Byte808Enscape(value[]byte,startIndex int, length int)([]byte){
+func (binaryHelper) Byte808Enscape(value []byte, startIndex int, length int) []byte {
 	ilength := len(value)
-	if (startIndex+length)>ilength{
-		
+	if (startIndex + length) > ilength {
+
 	}
-	buf :=new(bytes.Buffer)
+	buf := new(bytes.Buffer)
 	buf.WriteByte(0x7e)
-	for i:=startIndex;i<ilength;i++{
-		if value[i]==0x7D{
+	for i := startIndex; i < ilength; i++ {
+		if value[i] == 0x7D {
 			buf.WriteByte(0x7d)
 			buf.WriteByte(0x01)
-		}else if value[i]==0x7e{
+		} else if value[i] == 0x7e {
 			buf.WriteByte(0x7d)
 			buf.WriteByte(0x02)
-		}else{
+		} else {
 			buf.WriteByte(value[i])
 		}
 	}
-	buf.WriteByte(0x7e)	
+	buf.WriteByte(0x7e)
 	return buf.Bytes()
 }
 
-
 /*CRC Check*/
-func(binaryHelper)CRCCheck(value []byte) bool{
-	bCRC :=byte(0x00)
-	for i:=0;i<len(value)-1;i++{
+func (binaryHelper) CRCCheck(value []byte) bool {
+	bCRC := byte(0x00)
+	for i := 0; i < len(value)-1; i++ {
 		bCRC ^= value[i]
 	}
-	if bCRC == value[len(value)-1]{
+	if bCRC == value[len(value)-1] {
 		return true
-	}else{
+	} else {
 		return false
 	}
+}
+
+/*CRC16 Check*/
+func (binaryHelper) CRC16Check(data []byte) int16 {
+	var crc_reg int16 = -1
+	var current int16 = 0
+	for i := 0; i < len(data); i++ {
+		current = int16(data[i]) << 8
+		for j := 0; j < 8; j++ {
+			if (crc_reg ^ current) < 0 {
+				crc_reg = ((crc_reg << 1) ^ 0x1021)
+			} else {
+				crc_reg <<= 1
+			}
+			current <<= 1
+		}
+	}
+	return int16(crc_reg)
 }
