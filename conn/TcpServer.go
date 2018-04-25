@@ -2,6 +2,7 @@ package conn
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -104,4 +105,17 @@ type ITcpServer interface {
 
 type TcpServerBase struct {
 	Server TcpServer
+}
+
+func SendEntity(e interface{}, c *Connector) (data []byte, err error) {
+	data, err = c.P.PacketMsg(e)
+	if err == nil {
+		if len(data) > 0 {
+			send := NewTcpData(data)
+			c.SendChan <- send
+		} else {
+			err = errors.New("SendEntity Error Pack Data Len <= 0")
+		}
+	}
+	return data, err
 }

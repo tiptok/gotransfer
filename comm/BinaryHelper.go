@@ -2,10 +2,18 @@ package comm
 
 import (
 	"bytes"
+	"crypto/md5"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"io"
+	"os"
 	"strconv"
+	"sync/atomic"
+	"time"
 )
 
 var BinaryHelper binaryHelper
@@ -40,6 +48,34 @@ func (binaryHelper) Int16ToBytes(value int16) []byte {
 	var rsp = make([]byte, 2)
 	rsp[0] = byte((value >> 8) & 0xFF)
 	rsp[1] = byte(value & 0xFF)
+	return rsp
+}
+
+/*
+	int to bytes 小端
+*/
+func (binaryHelper) Int32ToBytes(value int) []byte {
+	var rsp = make([]byte, 4)
+	rsp[0] = byte((value >> 24) & 0xFF)
+	rsp[1] = byte(value >> 16 & 0xFF)
+	rsp[2] = byte((value >> 8) & 0xFF)
+	rsp[3] = byte(value & 0xFF)
+	return rsp
+}
+
+/*
+	int to bytes 小端
+*/
+func (binaryHelper) Int64ToBytes(value int64) []byte {
+	var rsp = make([]byte, 4)
+	rsp[0] = byte((value >> 56) & 0xFF)
+	rsp[1] = byte(value >> 48 & 0xFF)
+	rsp[2] = byte((value >> 40) & 0xFF)
+	rsp[3] = byte(value >> 32 & 0xFF)
+	rsp[4] = byte((value >> 24) & 0xFF)
+	rsp[5] = byte(value >> 16 & 0xFF)
+	rsp[6] = byte((value >> 8) & 0xFF)
+	rsp[7] = byte(value & 0xFF)
 	return rsp
 }
 
@@ -165,4 +201,70 @@ func (binaryHelper) CRC16Check(data []byte) int16 {
 		}
 	}
 	return int16(crc_reg)
+}
+
+//生成GUID
+func readMachineId() []byte {
+	var sum [3]byte
+	id := sum[:]
+	hostname, err1 := os.Hostname()
+	if err1 != nil {
+		_, err2 := io.ReadFull(rand.Reader, id)
+		if err2 != nil {
+			panic(fmt.Errorf("cannot get hostname: %v; %v", err1, err2))
+		}
+		return id
+	}
+	hw := md5.New()
+	hw.Write([]byte(hostname))
+	copy(id, hw.Sum(nil))
+	fmt.Println("readMachineId:" + string(id))
+	return id
+}
+
+var objectIdCounter uint32 = 0
+var machineId = readMachineId()
+
+// NewObjectId returns a new unique ObjectId.
+// 4byte 时间，
+// 3byte 机器ID
+// 2byte pid
+// 3byte 自增ID
+//长度24
+func (binaryHelper) NewObjectId() string {
+	var b [12]byte
+	// Timestamp, 4 bytes, big endian
+	binary.BigEndian.PutUint32(b[:], uint32(time.Now().Unix()))
+	// Machine, first 3 bytes of md5(hostname)
+	b[4] = machineId[0]
+	b[5] = machineId[1]
+	b[6] = machineId[2]
+	// Pid, 2 bytes, specs don't specify endianness, but we use big endian.
+	pid := os.Getpid()
+	b[7] = byte(pid >> 8)
+	b[8] = byte(pid)
+	// Increment, 3 bytes, big endian
+	i := atomic.AddUint32(&objectIdCounter, 1)
+	b[9] = byte(i >> 16)
+	b[10] = byte(i >> 8)
+	b[11] = byte(i)
+	return BinaryHelper.ToBCDString(b[:], 0, int32(len(b)))
+}
+
+//生成32位md5字串
+func GetMd5String(s string) string {
+	h := md5.New()
+	h.Write([]byte(s))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+//生成Guid字串
+func (binaryHelper) UniqueId() string {
+	b := make([]byte, 48)
+
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		return ""
+	}
+	guid := GetMd5String(base64.URLEncoding.EncodeToString(b))
+	return fmt.Sprintf("%s-%s-%s-%s-%s", guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:])
 }
