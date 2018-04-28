@@ -60,3 +60,8 @@ func (c *TcpClient) Start(handler TcpHandler) bool {
 	go connector.ProcessSend(ctx)
 	return true
 }
+
+//重新启动
+func (c *TcpClient) ReStart() bool {
+	return c.Start(c.Handler)
+}
