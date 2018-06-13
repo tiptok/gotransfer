@@ -26,6 +26,9 @@ type binaryHelper struct{}
 func (binaryHelper) ToInt16(value []byte, startIndex int32) int16 {
 	return int16(binary.BigEndian.Uint16(value[startIndex:]))
 }
+func (binaryHelper) ToUInt16(value []byte, startIndex int32) uint16 {
+	return binary.BigEndian.Uint16(value[startIndex:])
+}
 
 /*
 	bytes to int32

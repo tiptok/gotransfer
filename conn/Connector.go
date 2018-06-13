@@ -21,7 +21,7 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 
 	conn := *(connector.Conn)
 	rb := new(bytes.Buffer)
-	data := make([]byte, 1024)
+	data := make([]byte, connector.Config.PackageSize)
 	for {
 
 		select {
@@ -149,6 +149,7 @@ func (c *Connector) Close() {
 type Conifg struct {
 	SendSize        uint32
 	ReceiveSize     uint32
+	PackageSize     int
 	IsParsePartMsg  bool //是否对接收到的数据进行分包处理
 	IsParseToEntity bool //是否解析为实体
 }

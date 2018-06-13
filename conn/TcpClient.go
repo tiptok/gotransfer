@@ -11,8 +11,8 @@ type TcpClient struct {
 	ServerPort int
 	ServerIp   string
 	Handler    TcpHandler
-	config     *Conifg
-	protocol   Protocol
+	Config     *Conifg
+	P          Protocol
 	LocalAdr   string
 	Conn       *Connector
 }
@@ -21,9 +21,10 @@ type TcpClient struct {
 func (tcpClient *TcpClient) NewTcpClient(ip string, port, sSize, rSize int) {
 	tcpClient.ServerIp = ip
 	tcpClient.ServerPort = port
-	tcpClient.config = &Conifg{
+	tcpClient.Config = &Conifg{
 		SendSize:    500,
 		ReceiveSize: 500,
+		PackageSize: 1024,
 	}
 }
 
@@ -48,9 +49,10 @@ func (c *TcpClient) Start(handler TcpHandler) bool {
 	}
 	log.Println(sAddr.String(), "Start Client.")
 
-	connector := NewConn(&client, handler, *c.config)
+	connector := NewConn(&client, handler, *c.Config)
 	c.Conn = connector
 	c.Handler.OnConnect(connector)
+	connector.P = c.P
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)

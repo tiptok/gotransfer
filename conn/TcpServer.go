@@ -25,6 +25,7 @@ func (tcpServer *TcpServer) NewTcpServer(port, sSize, rSize int) {
 	tcpServer.Config = &Conifg{
 		SendSize:    500,
 		ReceiveSize: 500,
+		PackageSize: 1024,
 	}
 	//tcpServer.Conn = make([]Connector, 500)
 	//tcpServer.Online = make(map[string]*Connector)
