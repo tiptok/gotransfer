@@ -9,6 +9,10 @@ import (
 	"strconv"
 )
 
+var (
+	Error_SendDataLen = errors.New("gotransfer:SendEntity Error PackData Lenght <= 0")
+)
+
 //server
 type TcpServer struct {
 	Port    int
@@ -115,7 +119,7 @@ func SendEntity(e interface{}, c *Connector) (data []byte, err error) {
 			send := NewTcpData(data)
 			c.SendChan <- send
 		} else {
-			err = errors.New("SendEntity Error Pack Data Len <= 0")
+			err = Error_SendDataLen
 		}
 	}
 	return data, err

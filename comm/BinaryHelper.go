@@ -53,11 +53,25 @@ func (binaryHelper) Int16ToBytes(value int16) []byte {
 	rsp[1] = byte(value & 0xFF)
 	return rsp
 }
+func (binaryHelper) UInt16ToBytes(value uint16) []byte {
+	var rsp = make([]byte, 2)
+	rsp[0] = byte((value >> 8) & 0xFF)
+	rsp[1] = byte(value & 0xFF)
+	return rsp
+}
 
 /*
 	int to bytes 小端
 */
 func (binaryHelper) Int32ToBytes(value int) []byte {
+	var rsp = make([]byte, 4)
+	rsp[0] = byte((value >> 24) & 0xFF)
+	rsp[1] = byte(value >> 16 & 0xFF)
+	rsp[2] = byte((value >> 8) & 0xFF)
+	rsp[3] = byte(value & 0xFF)
+	return rsp
+}
+func (binaryHelper) UInt32ToBytes(value uint) []byte {
 	var rsp = make([]byte, 4)
 	rsp[0] = byte((value >> 24) & 0xFF)
 	rsp[1] = byte(value >> 16 & 0xFF)
@@ -81,6 +95,18 @@ func (binaryHelper) Int64ToBytes(value int64) []byte {
 	rsp[7] = byte(value & 0xFF)
 	return rsp
 }
+func (binaryHelper) UInt64ToBytes(value uint64) []byte {
+	var rsp = make([]byte, 4)
+	rsp[0] = byte((value >> 56) & 0xFF)
+	rsp[1] = byte(value >> 48 & 0xFF)
+	rsp[2] = byte((value >> 40) & 0xFF)
+	rsp[3] = byte(value >> 32 & 0xFF)
+	rsp[4] = byte((value >> 24) & 0xFF)
+	rsp[5] = byte(value >> 16 & 0xFF)
+	rsp[6] = byte((value >> 8) & 0xFF)
+	rsp[7] = byte(value & 0xFF)
+	return rsp
+}
 
 /*
 	bytes to ASCII String 解码
@@ -93,6 +119,15 @@ func (binaryHelper) ToASCIIString(value []byte, startIndex int32, length int32) 
 }
 func (binaryHelper) GetASCIIString(value string) []byte {
 	return []byte(value)
+}
+func (binaryHelper) GetASCIIStringWL(value string, length int) []byte {
+	data := []byte(value)
+	rsp := make([]byte, length)
+	if len(data) < length {
+		copy(rsp, data)
+		return rsp
+	}
+	return data[:length]
 }
 
 /*

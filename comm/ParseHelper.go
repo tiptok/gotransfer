@@ -62,7 +62,7 @@ func (parseHelper) ParsePart(data []byte, BEGIN, END byte) (packdata [][]byte, l
 func (parseHelper) InvokeFunc(obj interface{}, sMethodName string, param ...interface{}) (rsp []reflect.Value, err error) {
 	defer func() {
 		if p := recover(); p != nil {
-			err = fmt.Errorf("%v", p)
+			err = fmt.Errorf("InvokeFunc %v", p)
 			//return rsp, err
 		}
 	}()
