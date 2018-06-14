@@ -2,6 +2,7 @@ package comm
 
 import (
 	"os"
+	"strconv"
 )
 
 var UnityToolHelper unityToolHelper
@@ -25,4 +26,13 @@ func (unityToolHelper) FileExist(filepath string) (f os.FileInfo, exist bool) {
 func (unityToolHelper) MKdir(dir string) error {
 	err := os.Mkdir(dir, os.ModePerm)
 	return err
+}
+
+//ConvertToInt  num string convert to in
+func (unityToolHelper) ConvertToInt(val string) int {
+	rsp, err := strconv.Atoi(val)
+	if err != nil {
+		panic(err)
+	}
+	return rsp
 }
