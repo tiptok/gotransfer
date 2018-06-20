@@ -36,12 +36,18 @@ func (binaryHelper) ToUInt16(value []byte, startIndex int32) uint16 {
 func (binaryHelper) ToInt32(value []byte, startIndex int32) int32 {
 	return int32(binary.BigEndian.Uint32(value[startIndex:]))
 }
+func (binaryHelper) ToUInt32(value []byte, startIndex int32) uint32 {
+	return binary.BigEndian.Uint32(value[startIndex:])
+}
 
 /*
 	bytes to int64
 */
 func (binaryHelper) ToInt64(value []byte, startIndex int32) int64 {
 	return int64(binary.BigEndian.Uint64(value[startIndex:]))
+}
+func (binaryHelper) ToUInt64(value []byte, startIndex int32) uint64 {
+	return binary.BigEndian.Uint64(value[startIndex:])
 }
 
 /*
