@@ -90,7 +90,7 @@ func (binaryHelper) UInt32ToBytes(value uint) []byte {
 	int to bytes 小端
 */
 func (binaryHelper) Int64ToBytes(value int64) []byte {
-	var rsp = make([]byte, 4)
+	var rsp = make([]byte, 8)
 	rsp[0] = byte((value >> 56) & 0xFF)
 	rsp[1] = byte(value >> 48 & 0xFF)
 	rsp[2] = byte((value >> 40) & 0xFF)
@@ -102,7 +102,7 @@ func (binaryHelper) Int64ToBytes(value int64) []byte {
 	return rsp
 }
 func (binaryHelper) UInt64ToBytes(value uint64) []byte {
-	var rsp = make([]byte, 4)
+	var rsp = make([]byte, 8)
 	rsp[0] = byte((value >> 56) & 0xFF)
 	rsp[1] = byte(value >> 48 & 0xFF)
 	rsp[2] = byte((value >> 40) & 0xFF)
