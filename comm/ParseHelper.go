@@ -28,32 +28,31 @@ func (parseHelper) ParsePart(data []byte, BEGIN, END byte) (packdata [][]byte, l
 	}
 	ibegin := -1
 	iEnd := -1
-	packdata = make([][]byte, 1)
-	for i := 0; i < len(data); i++ {
+	packdata = make([][]byte, 0)
+	dataLen := len(data)
+	for i := 0; i < dataLen; i++ {
 		if data[i] == BEGIN {
 			ibegin = i
 		}
-		if data[i] == END && ibegin >= 0 && ibegin != i {
+		if data[i] != END && ibegin >= 0 {
 			iEnd = i + 1
-		}
-		if ibegin >= 0 && iEnd > 0 {
-			/*添加到data list */
-			packdata = append(packdata, data[ibegin:iEnd])
-			//
-			/*重置下标*/
-			ibegin, iEnd = -1, -1
+			/*退出分包 将剩余bytes写到leftdata 里面*/
+			if ibegin >= 0 && iEnd >= dataLen {
+				leftdata = data[ibegin:]
+				break
+			}
 			continue
 		}
-		/*退出分包 将剩余bytes写到leftdata 里面*/
-		if ibegin >= 0 && i+1 == len(data) {
-			if iEnd < len(data) {
-				leftdata = data[ibegin:]
-			}
-			break
+		if ibegin >= 0 && iEnd < dataLen && data[ibegin] != END {
+			/*添加到data list */
+			packdata = append(packdata, data[ibegin:iEnd+1])
+			/*重置下标*/
+			ibegin, iEnd = iEnd, iEnd+1
+			continue
 		}
 	}
 	/*未找到头标识 说明报文是非法数据*/
-	if ibegin < 0 && len(packdata) == 1 {
+	if ibegin < 0 && len(packdata) == 0 {
 		err = errors.New("tcp数据格式不对")
 	}
 	return packdata, leftdata, err
