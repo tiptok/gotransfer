@@ -30,24 +30,29 @@ func (parseHelper) ParsePart(data []byte, BEGIN, END byte) (packdata [][]byte, l
 	iEnd := -1
 	packdata = make([][]byte, 0)
 	dataLen := len(data)
+	bFindBegin := false
 	for i := 0; i < dataLen; i++ {
 		if data[i] == BEGIN {
 			ibegin = i
+			bFindBegin = true
 		}
 		if data[i] != END && ibegin >= 0 {
 			iEnd = i + 1
 			/*退出分包 将剩余bytes写到leftdata 里面*/
-			if ibegin >= 0 && iEnd >= dataLen {
-				leftdata = data[ibegin:]
+			if bFindBegin && iEnd >= dataLen {
+				tmpleft := ibegin
+				leftdata = data[tmpleft:]
 				break
 			}
 			continue
 		}
-		if ibegin >= 0 && iEnd < dataLen && data[ibegin] != END {
+		if bFindBegin && iEnd < dataLen && ibegin < iEnd {
 			/*添加到data list */
-			packdata = append(packdata, data[ibegin:iEnd+1])
+			tmpbegin, tmpend := ibegin, iEnd+1
+			packdata = append(packdata, data[tmpbegin:tmpend])
 			/*重置下标*/
 			ibegin, iEnd = iEnd, iEnd+1
+			bFindBegin = false
 			continue
 		}
 	}

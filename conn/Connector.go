@@ -232,16 +232,17 @@ func (connector *Connector) parsePart(data []byte) (err error) {
 		}
 
 		/*解析完整包*/
-		if packdata != nil {
+		if len(packdata) > 0 {
 			for i := 0; i < len(packdata); i++ {
 				if len(packdata[i]) <= 0 {
 					continue
 				}
 				err = connector.parseToEntity(packdata[i]) //发送给接收
 			}
-		} else {
-			err = errors.New("parsePart 未解析出数据包")
 		}
+		// else {
+		// 	err = errors.New("parsePart 未解析出数据包")
+		// }
 		if leftdata != nil && len(leftdata) > 0 {
 			_, err = connector.WriteLeftData(leftdata)
 			//log.Println("Left Data:", comm.BinaryHelper.ToBCDString(leftdata, 0, int32(len(leftdata))), connector.Leftbuf.Len())

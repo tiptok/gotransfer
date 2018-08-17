@@ -37,7 +37,7 @@ func TestByte808Descape(t *testing.T) {
 }
 
 func TestCRC16Check(t *testing.T) {
-	data, err := BinaryHelper.GetBCDString("000000480000000e100100bc614e010001000000000000bc614e31323334353637383132372e302e302e3100000000000000000000000000000000000000000000004671cc38")
+	data, err := BinaryHelper.GetBCDString("5B00CF4A")
 	if err != nil {
 		t.Log(err)
 	}
@@ -46,5 +46,5 @@ func TestCRC16Check(t *testing.T) {
 	if int16(tmp) == crc {
 		log.Println(tmp, crc)
 	}
-
+	log.Printf("%x %x", uint16(tmp), uint16(crc))
 }
