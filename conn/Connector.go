@@ -8,6 +8,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/tiptok/gotransfer/comm"
 )
 
 //连接事件
@@ -149,9 +151,11 @@ func (c *Connector) Close() {
 type Conifg struct {
 	SendSize        uint32
 	ReceiveSize     uint32
-	PackageSize     int
+	PackageSize     int  //每次接收读取数据包大小
 	IsParsePartMsg  bool //是否对接收到的数据进行分包处理
 	IsParseToEntity bool //是否解析为实体
+	PackageMinSize  int  //数据包最小容量  单位 B
+	PackageMaxSize  int  //数据包最大容量  单位 B
 }
 
 //Connector  conn
@@ -172,6 +176,8 @@ type Connector struct {
 	/*剩余包数据*/
 	Leftbuf *bytes.Buffer
 	P       Protocol
+	/*对象池*/
+	Pool *comm.SyncPool
 }
 
 //NewConn new Connector
@@ -188,6 +194,7 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 		HeartTime:     time.Now(),
 		Config:        config,
 		Leftbuf:       bytes.NewBuffer([]byte{}),
+		Pool:          comm.NewSyncPool(config.PackageMinSize, config.PackageMaxSize, 2),
 	}
 	// c.ctx = context.Background()
 	// ctx, cancel := context.WithCancel(c.ctx)
@@ -278,6 +285,7 @@ func (connector *Connector) ParseToEntity(data []byte) (entity interface{}, err 
 		err = errors.New("ParseToEntity Error:未定义协议")
 		return nil, err
 	}
+	defer connector.Pool.Free(data)       //回收到对象池
 	entity, err = connector.P.Parse(data) //entity
 	return entity, err
 }

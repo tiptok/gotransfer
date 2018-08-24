@@ -1,6 +1,7 @@
 package comm
 
 import (
+	"fmt"
 	"log"
 	"testing"
 )
@@ -31,4 +32,12 @@ func TestParsePart2(t *testing.T) {
 		}
 	}
 	log.Println("package size:", len(pack), " left", len(left))
+}
+
+func TestCopyBuf(t *testing.T) {
+	buf := make([]byte, 3)
+	data := []byte{0x01, 0x02, 0x03}
+	copy(buf, data)
+	fmt.Println(buf)
+	fmt.Println(data)
 }

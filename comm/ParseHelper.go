@@ -10,12 +10,22 @@ import (
 //ParseHelper  解析公共类
 var ParseHelper parseHelper
 
-type parseHelper struct{}
+type parseHelper struct {
+}
 
 //ParsePart 收到的数据进行分包处理 解析出完整包
 //BEGIN 头标识
 //END   尾标识
 func (parseHelper) ParsePart(data []byte, BEGIN, END byte) (packdata [][]byte, leftdata []byte, err error) {
+	return parsePartWithPool(data, BEGIN, END, nil)
+}
+
+//传递对象池
+func (parseHelper) ParsePartWithPool(data []byte, BEGIN, END byte, Pool *SyncPool) (packdata [][]byte, leftdata []byte, err error) {
+	return parsePartWithPool(data, BEGIN, END, Pool)
+}
+
+func parsePartWithPool(data []byte, BEGIN, END byte, Pool *SyncPool) (packdata [][]byte, leftdata []byte, err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			log.Printf("ParseHelper.ParsePart panic recover! p: %v", p)
@@ -49,7 +59,16 @@ func (parseHelper) ParsePart(data []byte, BEGIN, END byte) (packdata [][]byte, l
 		if bFindBegin && iEnd < dataLen && ibegin < iEnd {
 			/*添加到data list */
 			tmpbegin, tmpend := ibegin, iEnd+1
-			packdata = append(packdata, data[tmpbegin:tmpend])
+			iSize := tmpend - tmpbegin
+			var tmpdata []byte
+			if Pool != nil {
+				tmpdata = Pool.Alloc(iSize) //使用对象池
+			} else {
+				tmpdata = make([]byte, iSize) //普通生成对象
+			}
+			copy(tmpdata, data[tmpbegin:tmpend])
+			packdata = append(packdata, tmpdata)
+			//packdata = append(packdata, data[tmpbegin:tmpend])
 			/*重置下标*/
 			ibegin, iEnd = iEnd, iEnd+1
 			bFindBegin = false
