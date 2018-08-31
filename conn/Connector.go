@@ -262,20 +262,9 @@ func (connector *Connector) parsePart(data []byte) (err error) {
 
 //parseToEntity 解析数据到实体
 func (connector *Connector) parseToEntity(data []byte) (err error) {
-	// isParseToEntity := connector.Config.IsParseToEntity
-	// if connector.P == nil {
-	// 	isParseToEntity = false //未定义协议,不进行分包处理
-	// }
-	//是否解析为实体
-	// if isParseToEntity {
-	// 	_, err = connector.P.Parse(data) //entity
-	// 	//传递 entity
-	// } else {
-	// 	tcpData := TcpData{buffer: data}
-	// 	connector.RecChan <- tcpData //发送给接收
-	// }
 	tcpData := TcpData{buffer: data}
 	connector.RecChan <- tcpData //发送给接收
+	//connector.handler.OnReceive(connector, p)
 	return err
 }
 

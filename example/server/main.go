@@ -1,9 +1,12 @@
 package main
 
 import (
-	"encoding/hex"
+	"fmt"
 	"gotransfer/conn"
 	"log"
+
+	"net/http"
+	_ "net/http/pprof"
 )
 
 type SimpleServerHandler struct {
@@ -24,7 +27,7 @@ var exit chan int
 
 //OnReceive handler
 func (trans *SimpleServerHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
-	log.Printf("%v On Receive Data : %v\n", c.RemoteAddress, hex.EncodeToString(d.Bytes()))
+	//log.Printf("%v On Receive Data : %v\n", c.RemoteAddress, hex.EncodeToString(d.Bytes()))
 	c.SendChan <- d
 	return true
 }
@@ -35,6 +38,10 @@ func main() {
 		var srv conn.TcpServer
 		srv.NewTcpServer(9928, 500, 500)
 		srv.Start(&SimpleServerHandler{})
+	}()
+
+	go func() {
+		http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", 9929), nil)
 	}()
 	//等待退出
 	<-exit
