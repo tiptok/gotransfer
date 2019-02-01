@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -149,6 +150,25 @@ func (binaryHelper) ToBCDString(value []byte, startIndex int32, length int32) st
 func (binaryHelper) GetBCDString(value string) ([]byte, error) {
 	return hex.DecodeString(value)
 }
+func (binaryHelper) GetBCDStringWL(value string, length int) ([]byte, error) {
+	rsp, err := hex.DecodeString(value)
+	if len(rsp) < length {
+		return nil, fmt.Errorf("GetBCDStringWL:slice out bound")
+	}
+	return rsp[0:length], err
+}
+
+/*
+*go g关键字不能使用 len 之类的*
+ */
+func PaddingLeft(value string, padding string, ilen int) string {
+	ivlen := len(value)
+	if ivlen < ilen {
+		padLeft := strings.Repeat(padding, ilen-ivlen)
+		return fmt.Sprintf("%s%s", padLeft, value)[0:ilen]
+	}
+	return value[0:ilen]
+}
 
 /*
 	返回固定长度切片
@@ -245,6 +265,13 @@ func (binaryHelper) CRC16Check(data []byte) int16 {
 		}
 	}
 	return int16(crc_reg)
+}
+func (binaryHelper) GetCRC(value []byte) byte {
+	bCRC := byte(0x00)
+	for i := 0; i < len(value); i++ {
+		bCRC ^= value[i]
+	}
+	return bCRC
 }
 
 //生成GUID
