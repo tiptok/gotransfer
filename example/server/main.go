@@ -1,12 +1,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"gotransfer/conn"
 	"log"
 
 	"net/http"
 	_ "net/http/pprof"
+
+	"github.com/tiptok/gotransfer/conn"
 )
 
 type SimpleServerHandler struct {
@@ -33,15 +35,20 @@ func (trans *SimpleServerHandler) OnReceive(c *conn.Connector, d conn.TcpData) b
 }
 
 func main() {
+	var (
+		port int
+	)
+	flag.IntVar(&port,"p",9927,"server listen port")
+
 	//启动tcp服务
 	go func() {
 		var srv conn.TcpServer
-		srv.NewTcpServer(9928, 500, 500)
+		srv.NewTcpServer(9927, 500, 500)
 		srv.Start(&SimpleServerHandler{})
 	}()
 
 	go func() {
-		http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", 9929), nil)
+		http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), nil)
 	}()
 	//等待退出
 	<-exit
