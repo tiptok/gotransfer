@@ -38,7 +38,7 @@ func main() {
 	var (
 		port int
 	)
-	flag.IntVar(&port,"p",9927,"server listen port")
+	flag.IntVar(&port,"p",9929,"server listen port")
 
 	//启动tcp服务
 	go func() {
