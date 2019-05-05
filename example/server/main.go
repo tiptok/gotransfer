@@ -35,6 +35,13 @@ func (trans *SimpleServerHandler) OnReceive(c *conn.Connector, d conn.TcpData) b
 }
 
 func main() {
+	defer func(){
+		if p:=recover();p!=nil{
+			log.Println("panic,recover...")
+			log.Println(p)
+		}
+	}()
+
 	var (
 		port int
 	)
