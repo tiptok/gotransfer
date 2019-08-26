@@ -12,6 +12,54 @@ import (
 	"github.com/tiptok/gotransfer/comm"
 )
 
+func assertIConnectorImplementation(){
+	var _  IConnector= (*Connector)(nil)
+}
+
+//Connector  conn
+type Connector struct {
+	//srv           *TcpServer
+	Conn          *net.Conn
+	handler       TcpHandler
+	SendChan      chan TcpData
+	RecChan       chan TcpData
+	RemoteAddress string
+	CloseOnce     sync.Once
+	IsConneted    bool
+	ExitChan      chan interface{}
+	HeartTime     time.Time
+	Config        Conifg
+	//取消
+	cancelFunc context.CancelFunc
+	/*剩余包数据*/
+	Leftbuf *bytes.Buffer
+	P       Protocol
+	/*对象池*/
+	Pool *comm.SyncPool
+
+	stopFlag        int32
+	connectedFlag   int32
+}
+
+//NewConn new Connector
+func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, srv *TcpServer
+	c := &Connector{
+		//srv:           srv,
+		Conn:          tcpconn,
+		SendChan:      make(chan TcpData, config.SendSize),
+		RecChan:       make(chan TcpData, config.ReceiveSize),
+		ExitChan:      make(chan interface{}),
+		RemoteAddress: (*tcpconn).RemoteAddr().String(),
+		handler:       h,
+		IsConneted:    true,
+		HeartTime:     time.Now(),
+		Config:        config,
+		Leftbuf:       bytes.NewBuffer([]byte{}),
+		Pool:          comm.NewSyncPool(config.PackageMinSize, config.PackageMaxSize, 2),
+	}
+	return c
+}
+
 //连接事件
 //接收数据
 func (connector *Connector) ProcessRecv(ctx context.Context) {
@@ -22,19 +70,17 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 	}()
 
 	conn := *(connector.Conn)
-	rb := new(bytes.Buffer)
-	data := make([]byte, connector.Config.PackageSize)
 	for {
-
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
+		data := connector.Pool.Alloc(connector.Config.PackageSize)
 		length, err := conn.Read(data)
 		//length, err := rb.ReadFrom(conn)
 		if err != nil {
-			//?如何处理关闭
+			//处理关闭
 			if connector.IsConneted {
 				connector.SendChan <- TcpData{} //向写数据发送一个nil告诉即将关闭
 			}
@@ -43,7 +89,6 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 		}
 		connector.RefreshTime() //刷新最新时间
 		err = connector.parsePart(data[:length])
-		rb.Reset()
 	}
 }
 
@@ -69,6 +114,7 @@ func (connector *Connector) DataHandler(ctx context.Context) {
 				return
 			}
 			if !(connector.handler.OnReceive(connector, p)) {
+				p.Free()
 			}
 		}
 	}
@@ -147,62 +193,8 @@ func (c *Connector) Close() {
 	})
 }
 
-//Conifg connector config
-type Conifg struct {
-	SendSize        uint32
-	ReceiveSize     uint32
-	PackageSize     int  //每次接收读取数据包大小
-	IsParsePartMsg  bool //是否对接收到的数据进行分包处理
-	IsParseToEntity bool //是否解析为实体
-	PackageMinSize  int  //数据包最小容量  单位 B
-	PackageMaxSize  int  //数据包最大容量  单位 B
-}
 
-//Connector  conn
-type Connector struct {
-	//srv           *TcpServer
-	Conn          *net.Conn
-	handler       TcpHandler
-	SendChan      chan TcpData
-	RecChan       chan TcpData
-	RemoteAddress string
-	CloseOnce     sync.Once
-	IsConneted    bool
-	ExitChan      chan interface{}
-	HeartTime     time.Time
-	Config        Conifg
-	//取消
-	cancelFunc context.CancelFunc
-	/*剩余包数据*/
-	Leftbuf *bytes.Buffer
-	P       Protocol
-	/*对象池*/
-	Pool *comm.SyncPool
-}
-
-//NewConn new Connector
-func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, srv *TcpServer
-	c := &Connector{
-		//srv:           srv,
-		Conn:          tcpconn,
-		SendChan:      make(chan TcpData, config.SendSize),
-		RecChan:       make(chan TcpData, config.ReceiveSize),
-		ExitChan:      make(chan interface{}),
-		RemoteAddress: (*tcpconn).RemoteAddr().String(),
-		handler:       h,
-		IsConneted:    true,
-		HeartTime:     time.Now(),
-		Config:        config,
-		Leftbuf:       bytes.NewBuffer([]byte{}),
-		Pool:          comm.NewSyncPool(config.PackageMinSize, config.PackageMaxSize, 2),
-	}
-	// c.ctx = context.Background()
-	// ctx, cancel := context.WithCancel(c.ctx)
-	// c.ctx = ctx
-	// c.cancelFunc = cancel
-	return c
-}
-
+//公共方法
 //LocalAddr	连接的本地Address
 func (c *Connector) LocalAddr() (net.Addr, error) {
 	if !c.IsConneted {
@@ -262,7 +254,7 @@ func (connector *Connector) parsePart(data []byte) (err error) {
 
 //parseToEntity 解析数据到实体
 func (connector *Connector) parseToEntity(data []byte) (err error) {
-	tcpData := TcpData{buffer: data}
+	tcpData := TcpData{buffer: data,pool:connector.Pool}
 	connector.RecChan <- tcpData //发送给接收
 	//connector.handler.OnReceive(connector, p)
 	return err

@@ -68,23 +68,6 @@ func (d *DataContext) Delete(key interface{}) {
 // If maxAge <= 0, all request data is removed.
 //清理
 func (d *DataContext) Purge(key interface{}, maxAge int) int {
-	//d.mutex.Lock()
-	// count := 0
-	// if maxAge <= 0 {
-	// 	count = len(d.DataStore)
-	// 	d.DataStore = make(map[interface{}]interface{})
-	// 	d.DataStoreExpire = make(map[interface{}]int64)
-	// } else {
-	// 	min := time.Now().Unix() - int64(maxAge)
-	// 	for key, _ := range d.DataStore {
-	// 		if d.DataStoreExpire[key] < min {
-	// 			d.Delete(key)
-	// 			count++
-	// 		}
-	// 	}
-	// }
-	//d.mutex.Unlock()
-	//return count
 	return d.PurgeWithFunc(key, maxAge, nil)
 }
 

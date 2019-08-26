@@ -49,9 +49,14 @@ func main() {
 
 	//启动tcp服务
 	go func() {
-		var srv conn.TcpServer
-		srv.NewTcpServer(9927, 500, 500)
-		srv.Start(&SimpleServerHandler{})
+		config :=&conn.Conifg{
+			ListenPort:port,
+			SendSize:100,
+			ReceiveSize:100,
+			PackageSize:128,
+		}
+		var srv *conn.TcpServer = conn.NewTcpServer(config,&SimpleServerHandler{},nil)
+		srv.Start()
 	}()
 
 	go func() {
