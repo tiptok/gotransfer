@@ -61,7 +61,7 @@ func (tcpServer *UpdServer) Start(handler TcpHandler) {
 		// }
 		// //rAddr = "" //远程连接处理
 		if n > 0 {
-			tcpServer.Handler.OnReceive(&Connector{RemoteAddress: rAddr.String()}, TcpData{buffer: buf[:n]})
+			tcpServer.Handler.OnReceive(&Connector{RemoteAddress: rAddr.String()}, &TcpData{buffer: buf[:n]})
 		}
 	}
 }

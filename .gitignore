@@ -2,3 +2,5 @@
 *.log
 *.test
 debug
+*.git
+*.idea

@@ -8,17 +8,16 @@ type TcpData struct {
 	pool *comm.SyncPool
 }
 
-func NewTcpData(d []byte) TcpData {
-	return TcpData{buffer: d}
+func NewTcpData(d []byte) *TcpData {
+	return &TcpData{buffer: d}
 }
 func (d TcpData) Bytes() []byte {
 	return d.buffer
 }
-
 func (d TcpData) Lenght() int {
 	return len(d.buffer)
 }
-
+//free tcpdata
 func(d TcpData)Free(){
 	d.pool.Free(d.buffer)
 }

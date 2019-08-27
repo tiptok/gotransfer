@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tiptok/gotransfer/comm"
 	"log"
 	"net"
 	"strconv"
@@ -12,6 +13,10 @@ import (
 
 var (
 	Error_SendDataLen = errors.New("gotransfer:SendEntity Error PackData Lenght <= 0")
+)
+var (
+	DefaultPackageSize = 1024
+	DefaultRecChanSize = 100
 )
 
 func assertITcpServermplementation(){
@@ -27,14 +32,23 @@ type TcpServer struct {
 	stopFlag        int32
 	connectedFlag   int32
 	listener net.Listener
+	Pool *comm.SyncPool
 }
 
 //new tcpServer
 func NewTcpServer(config *Conifg,handler TcpHandler,protocol Protocol)*TcpServer {
+	if config.PackageSize==0{
+		config.PackageSize = DefaultPackageSize
+	}
+	if config.ReceiveSize==0{
+		config.ReceiveSize = DefaultRecChanSize
+		config.SendSize = DefaultRecChanSize
+	}
 	return &TcpServer{
 		Config:config,
 		Handler:handler,
 		P:protocol,
+		Pool:          comm.NewSyncPool(config.PoolMinSize, config.PoolMaxSize, 2),
 	}
 }
 
@@ -59,16 +73,13 @@ func (tcpServer *TcpServer) Start() error{
 		if err != nil {
 			fmt.Print("Recv Conn Error.", err.Error())
 		} else {
-			connector := NewConn(&conn, tcpServer.Handler, *tcpServer.Config)
-			connector.P = tcpServer.P
-			//新连接 添加到在线列表里面
-			// if _, exists := tcpServer.Online[connector.RemoteAddress]; !exists {
-			// 	tcpServer.Online[connector.RemoteAddress] = connector
-			// }
 			ctx := context.Background()
 			ctx, cancel := context.WithCancel(ctx)
-			//传递 cancel
-			connector.cancelFunc = cancel
+			connector := NewConn(&conn, tcpServer.Handler, *tcpServer.Config).
+				SetSyncPool(tcpServer.Pool).
+				SetProtocol(tcpServer.P).
+				SetCancleFunc(cancel)//传递 cancel
+			//TODO:连接管理
 			tcpServer.Handler.OnConnect(connector)
 			go connector.ProcessRecv(ctx)
 			go connector.DataHandler(ctx)

@@ -21,8 +21,8 @@ type Connector struct {
 	//srv           *TcpServer
 	Conn          *net.Conn
 	handler       TcpHandler
-	SendChan      chan TcpData
-	RecChan       chan TcpData
+	SendChan      chan *TcpData
+	RecChan       chan *TcpData
 	RemoteAddress string
 	CloseOnce     sync.Once
 	IsConneted    bool
@@ -46,8 +46,8 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 	c := &Connector{
 		//srv:           srv,
 		Conn:          tcpconn,
-		SendChan:      make(chan TcpData, config.SendSize),
-		RecChan:       make(chan TcpData, config.ReceiveSize),
+		SendChan:      make(chan *TcpData, config.SendSize),
+		RecChan:       make(chan *TcpData, config.ReceiveSize),
 		ExitChan:      make(chan interface{}),
 		RemoteAddress: (*tcpconn).RemoteAddr().String(),
 		handler:       h,
@@ -55,7 +55,7 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 		HeartTime:     time.Now(),
 		Config:        config,
 		Leftbuf:       bytes.NewBuffer([]byte{}),
-		Pool:          comm.NewSyncPool(config.PackageMinSize, config.PackageMaxSize, 2),
+		Pool:          comm.NewSyncPool(config.PoolMinSize, config.PoolMaxSize, 2),
 	}
 	return c
 }
@@ -82,7 +82,7 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 		if err != nil {
 			//处理关闭
 			if connector.IsConneted {
-				connector.SendChan <- TcpData{} //向写数据发送一个nil告诉即将关闭
+				connector.SendChan <- &TcpData{} //向写数据发送一个nil告诉即将关闭
 			}
 			connector.Close()
 			return
@@ -193,8 +193,23 @@ func (c *Connector) Close() {
 	})
 }
 
-
 //公共方法
+func(c *Connector)SetSyncPool(pool *comm.SyncPool)*Connector{
+	if pool==nil{
+		pool=comm.NewSyncPool(c.Config.PoolMinSize, c.Config.PoolMaxSize, 2)
+	}
+	c.Pool = pool
+	return c
+}
+func(c *Connector)SetProtocol(p  Protocol)*Connector{
+	c.P = p
+	return c
+}
+func(c *Connector)SetCancleFunc(cancel  context.CancelFunc)*Connector{
+	c.cancelFunc= cancel
+	return c
+}
+
 //LocalAddr	连接的本地Address
 func (c *Connector) LocalAddr() (net.Addr, error) {
 	if !c.IsConneted {
@@ -223,13 +238,12 @@ func (connector *Connector) parsePart(data []byte) (err error) {
 	if isParsePart {
 		//将新接收到的数据追加的上一次解析剩余的
 		connector.WriteLeftData(data)
-		//AddLeft := connector.Leftbuf
-		packdata, leftdata, err := connector.P.ParseMsg(connector.Leftbuf.Bytes(), connector)
+		packdata, leftdata, e := connector.P.ParseMsg(connector.Leftbuf.Bytes(), connector)
 		connector.Leftbuf.Reset() //LeftBuf置空
-		if err != nil {
-			return err
+		if e != nil {
+			err =e
+			return
 		}
-
 		/*解析完整包*/
 		if len(packdata) > 0 {
 			for i := 0; i < len(packdata); i++ {
@@ -239,22 +253,18 @@ func (connector *Connector) parsePart(data []byte) (err error) {
 				err = connector.parseToEntity(packdata[i]) //发送给接收
 			}
 		}
-		// else {
-		// 	err = errors.New("parsePart 未解析出数据包")
-		// }
 		if leftdata != nil && len(leftdata) > 0 {
 			_, err = connector.WriteLeftData(leftdata)
-			//log.Println("Left Data:", comm.BinaryHelper.ToBCDString(leftdata, 0, int32(len(leftdata))), connector.Leftbuf.Len())
 		}
-	} else {
-		err = connector.parseToEntity(data)
+		return
 	}
-	return err
+	err = connector.parseToEntity(data)
+	return
 }
 
 //parseToEntity 解析数据到实体
 func (connector *Connector) parseToEntity(data []byte) (err error) {
-	tcpData := TcpData{buffer: data,pool:connector.Pool}
+	tcpData := &TcpData{buffer: data,pool:connector.Pool}
 	connector.RecChan <- tcpData //发送给接收
 	//connector.handler.OnReceive(connector, p)
 	return err

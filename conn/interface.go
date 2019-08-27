@@ -19,7 +19,7 @@ type IConnector interface {
 //回调处理事件
 type TcpHandler interface {
 	OnConnect(*Connector) bool
-	OnReceive(*Connector, TcpData) bool
+	OnReceive(*Connector, *TcpData) bool
 	OnClose(*Connector)
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/tiptok/gotransfer/conn"
@@ -46,6 +47,12 @@ func main() {
 	exit := make(chan int, 1)
 	var wg sync.WaitGroup
 	wg.Add(termnum)
+
+	//统计信息
+	var(
+		beginTime int64 = time.Now().Unix()
+		totalSend int64
+	)
 	for i:=0;i<termnum;i++{
 		go func(){
 			defer func(){
@@ -62,19 +69,34 @@ func main() {
 					cli.ReStart() //重连
 				}
 				go func(){
+					defer func(){
+						if p:=recover();p!=nil{
+
+						}
+					}()
 					for{
 						if cli.Conn.IsConneted{
+							atomic.AddInt64(&totalSend,int64(len(data)))
 							cli.Conn.SendChan<-conn.NewTcpData([]byte(data))
 						}
 						time.Sleep(time.Duration(int64(interval))*time.Second)
 					}
 				}()
-				//log.Println("cli stop isconnnet:", cli.Conn.IsConneted, &cli)
 				time.Sleep(10 * time.Second)
+				//log.Println("cli stop isconnnet:", cli.Conn.IsConneted, &cli)
 			}
 		}()
 	}
 	wg.Wait()
 	fmt.Printf("start client num:%d  current:%d\n",termnum,len(clientChan))
+
+	go func(){
+		for{
+			time.Sleep(time.Second*10)
+			curTime :=time.Now().Unix()
+			span :=curTime - beginTime
+			fmt.Println(fmt.Printf("TotalSendSize:%v PersecondSend:%v Run:%v S",totalSend,totalSend/span,span))
+		}
+	}()
 	<-exit
 }

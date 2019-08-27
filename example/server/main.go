@@ -28,7 +28,7 @@ func (trans *SimpleServerHandler) OnClose(c *conn.Connector) {
 var exit chan int
 
 //OnReceive handler
-func (trans *SimpleServerHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
+func (trans *SimpleServerHandler) OnReceive(c *conn.Connector, d *conn.TcpData) bool {
 	//log.Printf("%v On Receive Data : %v\n", c.RemoteAddress, hex.EncodeToString(d.Bytes()))
 	c.SendChan <- d
 	return true
@@ -45,8 +45,9 @@ func main() {
 	var (
 		port int
 	)
-	flag.IntVar(&port,"p",9929,"server listen port")
+	flag.IntVar(&port,"p",9928,"server listen port")
 
+	flag.Parse()
 	//启动tcp服务
 	go func() {
 		config :=&conn.Conifg{
@@ -54,13 +55,18 @@ func main() {
 			SendSize:100,
 			ReceiveSize:100,
 			PackageSize:128,
+			PoolMinSize:64,
+			PoolMaxSize:1024*1024*10,
 		}
-		var srv *conn.TcpServer = conn.NewTcpServer(config,&SimpleServerHandler{},nil)
+		var srv = conn.NewTcpServer(config,&SimpleServerHandler{},nil)
 		srv.Start()
 	}()
 
 	go func() {
-		http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), nil)
+		err:= http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", 9929), nil)
+		if err!=nil{
+			log.Println(err)
+		}
 	}()
 	//等待退出
 	<-exit
