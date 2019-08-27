@@ -67,6 +67,8 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 		Config:        config,
 		Leftbuf:       bytes.NewBuffer([]byte{}),
 		Pool:          comm.NewSyncPool(config.PoolMinSize, config.PoolMaxSize, 2),
+		connectedFlag:1,
+		stopFlag:0,
 	}
 	return c
 }
@@ -220,7 +222,7 @@ func (c *Connector) Close() {
 		c.IsConneted = false
 		atomic.CompareAndSwapInt32(&c.stopFlag,0,1)
 		(*c.Conn).Close()
-		atomic.CompareAndSwapInt32(&c.connectedFlag,0,1)
+		atomic.CompareAndSwapInt32(&c.connectedFlag,1,0)
 		//TODO:exitchan
 		//c.ExitChan <- 1
 	})

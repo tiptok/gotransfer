@@ -18,14 +18,14 @@ func (cli *TcpClientHandler) OnConnect(c *conn.Connector) bool {
 	log.Println("client On connect", c.RemoteAddress)
 	return true
 }
-func (cli *TcpClientHandler) OnReceive(c *conn.Connector, d conn.TcpData) bool {
+func (cli *TcpClientHandler) OnReceive(c *conn.Connector, d *conn.TcpData) bool {
 	//cli.BizNode.SendToSrc(d)
 	//log.Println("Rece Data:%v", d)
 	return true
 }
 func (cli *TcpClientHandler) OnClose(c *conn.Connector) {
 	//从列表移除
-	log.Println("Client OnClose:", c.RemoteAddress)
+	log.Println("Client OnClose:", c.RemoteAddress,c.Status())
 }
 
 func main() {
@@ -36,7 +36,7 @@ func main() {
 	var addr   string
 
 	flag.StringVar(&addr,"addr","127.0.0.1","remote server IP")
-	flag.IntVar(&port,"p",9927,"remote server port")
+	flag.IntVar(&port,"p",9928,"remote server port")
 	flag.StringVar(&data,"d","hello tcp","send data to remote server")
 	flag.IntVar(&termnum,"n",1,"client size link to remote server")
 	flag.IntVar(&interval,"i",1,"interval to send data")
