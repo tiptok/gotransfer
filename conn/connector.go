@@ -3,10 +3,12 @@ package conn
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/tiptok/gotransfer/comm"
@@ -15,6 +17,12 @@ import (
 func assertIConnectorImplementation(){
 	var _  IConnector= (*Connector)(nil)
 }
+
+const (
+	G_Recv =1
+	G_Send =2
+	G_Handle=4
+)
 
 //Connector  conn
 type Connector struct {
@@ -39,6 +47,9 @@ type Connector struct {
 
 	stopFlag        int32
 	connectedFlag   int32
+
+	gWait    sync.WaitGroup
+	gClosed  int32
 }
 
 //NewConn new Connector
@@ -48,7 +59,7 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 		Conn:          tcpconn,
 		SendChan:      make(chan *TcpData, config.SendSize),
 		RecChan:       make(chan *TcpData, config.ReceiveSize),
-		ExitChan:      make(chan interface{}),
+		ExitChan:      make(chan interface{},1),
 		RemoteAddress: (*tcpconn).RemoteAddr().String(),
 		handler:       h,
 		IsConneted:    true,
@@ -60,6 +71,17 @@ func NewConn(tcpconn *net.Conn, h TcpHandler, config Conifg) *Connector { //, sr
 	return c
 }
 
+func(Connector *Connector)Status()string{
+	rspMap:=make(map[string] interface{})
+	rspMap["GroutineClosed"]=Connector.gClosed
+	data,err:= json.Marshal(rspMap)
+	if err!=nil {
+		log.Println(err)
+		return ""
+	}
+	return string(data)
+}
+
 //连接事件
 //接收数据
 func (connector *Connector) ProcessRecv(ctx context.Context) {
@@ -67,6 +89,16 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 		if err := recover(); err != nil {
 			log.Println(err)
 		}
+	}()
+	defer func(){
+		connector.gWait.Wait()
+		connector.handler.OnClose(connector) //所有都执行完以后触发结束
+	}()
+	connector.gWait.Add(1)
+	defer func(){
+		atomic.AddInt32(&connector.gClosed,G_Recv)
+		connector.gWait.Done()
+		connector.Close()
 	}()
 
 	conn := *(connector.Conn)
@@ -78,13 +110,11 @@ func (connector *Connector) ProcessRecv(ctx context.Context) {
 		}
 		data := connector.Pool.Alloc(connector.Config.PackageSize)
 		length, err := conn.Read(data)
-		//length, err := rb.ReadFrom(conn)
-		if err != nil {
+		if err != nil{//io.EOF
 			//处理关闭
 			if connector.IsConneted {
-				connector.SendChan <- &TcpData{} //向写数据发送一个nil告诉即将关闭
+				connector.SendChan <- &TcpData{singnal:Singnal_Kill} //向写数据发送一个nil告诉即将关闭
 			}
-			connector.Close()
 			return
 		}
 		connector.RefreshTime() //刷新最新时间
@@ -99,18 +129,19 @@ func (connector *Connector) DataHandler(ctx context.Context) {
 			log.Println(err)
 		}
 	}()
+	connector.gWait.Add(1)
+	defer func(){
+		atomic.AddInt32(&connector.gClosed,G_Handle)
+		connector.gWait.Done()
+	} ()
 
 	for {
 		select {
-		//修改注释
-		// case <-connector.ExitChan:
-		// 	connector.ExitChan <- 1
-		// 	return
 		case <-ctx.Done():
 			return
 		case p, IsClose := <-connector.RecChan:
 			if !IsClose {
-				connector.Close()
+				//connector.Close()
 				return
 			}
 			if !(connector.handler.OnReceive(connector, p)) {
@@ -127,21 +158,21 @@ func (connector *Connector) ProcessSend(ctx context.Context) {
 			log.Println(err)
 		}
 	}()
+	connector.gWait.Add(1)
+	defer func(){
+		atomic.AddInt32(&connector.gClosed,G_Send)
+		connector.gWait.Done()
+	}()
 	conn := *(connector.Conn)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-connector.ExitChan:
-			return
 		case p, IsClose := <-connector.SendChan:
 			if !IsClose {
-				//log.Println("Connnector Send Chan Closed...")
-				connector.Close()
 				return
 			}
-			if p.buffer == nil {
-				connector.ExitChan <- 1
+			if p.buffer == nil && p.singnal==Singnal_Kill{
 				return
 			}
 			if _, err := conn.Write(p.buffer); err != nil {
@@ -187,9 +218,11 @@ func (c *Connector) Close() {
 		close(c.SendChan)
 		close(c.RecChan)
 		c.IsConneted = false
-		c.handler.OnClose(c)
+		atomic.CompareAndSwapInt32(&c.stopFlag,0,1)
 		(*c.Conn).Close()
-		c.ExitChan <- 1
+		atomic.CompareAndSwapInt32(&c.connectedFlag,0,1)
+		//TODO:exitchan
+		//c.ExitChan <- 1
 	})
 }
 
@@ -226,6 +259,10 @@ func (c *Connector) WriteLeftData(leftdata []byte) (int, error) {
 //RefreshTime 刷新心跳时间
 func (connector *Connector) RefreshTime() {
 	connector.HeartTime = time.Now() //刷新最新时间
+}
+
+func(connector *Connector)Connected()bool{
+	return connector.connectedFlag==1
 }
 
 //parsePart 解析分包数据

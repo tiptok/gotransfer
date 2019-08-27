@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"runtime/pprof"
 
 	"net/http"
 	_ "net/http/pprof"
@@ -22,7 +24,7 @@ func (trans *SimpleServerHandler) OnConnect(c *conn.Connector) bool {
 
 //OnClose handler
 func (trans *SimpleServerHandler) OnClose(c *conn.Connector) {
-	log.Println(c.RemoteAddress, "On Close.")
+	log.Println(c.RemoteAddress, "On Close.",c.Status())
 }
 
 var exit chan int
@@ -63,6 +65,7 @@ func main() {
 	}()
 
 	go func() {
+		http.HandleFunc("/",loadHeap)
 		err:= http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", 9929), nil)
 		if err!=nil{
 			log.Println(err)
@@ -71,3 +74,16 @@ func main() {
 	//等待退出
 	<-exit
 }
+
+/*保存当前程序堆信息  查内存泄漏  go tool pprof xxfile*/
+func loadHeap(w http.ResponseWriter,r *http.Request){
+	log.Println("save heap to file")
+	fm, err := os.OpenFile("memprofile.prof", os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	pprof.WriteHeapProfile(fm)
+	fm.Close()
+	fmt.Fprintf(w,"saved to file:")
+}
+

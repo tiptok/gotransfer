@@ -1,11 +1,19 @@
 package conn
 
-import "github.com/tiptok/gotransfer/comm"
+import (
+	"github.com/tiptok/gotransfer/comm"
+)
+
+const (
+	Singnal_Normal_Data = iota
+	Singnal_Kill
+)
 
 //tcpData
 type TcpData struct {
 	buffer []byte
 	pool *comm.SyncPool
+	singnal int
 }
 
 func NewTcpData(d []byte) *TcpData {
