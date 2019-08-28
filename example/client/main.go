@@ -37,7 +37,7 @@ func main() {
 
 	flag.StringVar(&addr,"addr","127.0.0.1","remote server IP")
 	flag.IntVar(&port,"p",9928,"remote server port")
-	flag.StringVar(&data,"d","hello tcp","send data to remote server")
+	flag.StringVar(&data,"d","hello tcp ","send data to remote server")
 	flag.IntVar(&termnum,"n",1,"client size link to remote server")
 	flag.IntVar(&interval,"i",1,"interval to send data")
 
@@ -52,6 +52,7 @@ func main() {
 	var(
 		beginTime int64 = time.Now().Unix()
 		totalSend int64
+		totalSendTime int64
 	)
 	for i:=0;i<termnum;i++{
 		go func(){
@@ -61,41 +62,41 @@ func main() {
 				}
 			}()
 			cli := &conn.TcpClient{}
-			cli.NewTcpClient(addr, port, 500, 500)
-			cli.Start(&TcpClientHandler{})
+			handle :=new(TcpClientHandler)
+			cli.NewTcpClient(addr, port, handle)
+			//cli.Start(&TcpClientHandler{})
 			wg.Done()
 			for {
-				if !cli.Conn.IsConneted {
-					cli.ReStart() //重连
-				}
-				go func(){
-					defer func(){
-						if p:=recover();p!=nil{
+				defer func(){
+					if p:=recover();p!=nil{
 
-						}
-					}()
-					for{
-						if cli.Conn.IsConneted{
-							atomic.AddInt64(&totalSend,int64(len(data)))
-							cli.Conn.SendChan<-conn.NewTcpData([]byte(data))
-						}
-						time.Sleep(time.Duration(int64(interval))*time.Second)
 					}
 				}()
-				time.Sleep(10 * time.Second)
-				//log.Println("cli stop isconnnet:", cli.Conn.IsConneted, &cli)
+				if cli.Conn==nil || !cli.Conn.IsConneted{
+					cli.ReStart() //重连
+					time.Sleep(10 * time.Second)
+					continue
+				}
+				//for{
+				if cli.Conn!=nil && cli.Conn.IsConneted{
+					atomic.AddInt64(&totalSend,int64(len([]byte(data))))
+					atomic.AddInt64(&totalSendTime,int64(1))
+					cli.Conn.SendChan<-conn.NewTcpData([]byte(data))
+				}
+				time.Sleep(time.Duration(int64(interval))*time.Second)
+				//}
 			}
 		}()
 	}
 	wg.Wait()
-	fmt.Printf("start client num:%d  current:%d\n",termnum,len(clientChan))
+	fmt.Printf("start client num:%d  current:%d time:%v\n",termnum,len(clientChan),beginTime)
 
 	go func(){
 		for{
 			time.Sleep(time.Second*10)
 			curTime :=time.Now().Unix()
 			span :=curTime - beginTime
-			fmt.Println(fmt.Printf("TotalSendSize:%v PersecondSend:%v Run:%v S",totalSend,totalSend/span,span))
+			log.Println(fmt.Sprintf("time:%v total-send-size:%v per-second-Send:%v 消耗时间:%v s total_send_time:%v",curTime,totalSend,totalSend/span,int64(span),totalSendTime))
 		}
 	}()
 	<-exit

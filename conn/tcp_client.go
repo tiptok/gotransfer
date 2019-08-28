@@ -18,9 +18,10 @@ type TcpClient struct {
 }
 
 //new tcpClient
-func (tcpClient *TcpClient) NewTcpClient(ip string, port, sSize, rSize int) {
+func (tcpClient *TcpClient) NewTcpClient(ip string, port int,handler TcpHandler) {
 	tcpClient.ServerIp = ip
 	tcpClient.ServerPort = port
+	tcpClient.Handler = handler
 	tcpClient.Config = &Conifg{
 		SendSize:    500,
 		ReceiveSize: 500,
@@ -30,11 +31,13 @@ func (tcpClient *TcpClient) NewTcpClient(ip string, port, sSize, rSize int) {
 
 //启动tcp服务
 
-func (c *TcpClient) Start(handler TcpHandler) bool {
+func (c *TcpClient) Start() bool {
 	defer func() {
-		MyRecover()
+		if err := recover(); err != nil {
+			log.Println("On Recover", err)
+			//fmt.Println(err)
+		}
 	}()
-	c.Handler = handler
 	sAddr, err := net.ResolveTCPAddr("tcp4", c.ServerIp+":"+strconv.Itoa(c.ServerPort))
 	//sAddr := tcpServer.Ip + ":" + strconv.Itoa(tcpServer.Port)
 	client, err := net.Dial("tcp", sAddr.String())
@@ -49,7 +52,7 @@ func (c *TcpClient) Start(handler TcpHandler) bool {
 	}
 	log.Println(sAddr.String(), "Start Client.")
 
-	connector := NewConn(&client, handler, *c.Config)
+	connector := NewConn(&client, c.Handler, *c.Config)
 	c.Conn = connector
 	c.Handler.OnConnect(connector)
 	connector.P = c.P
@@ -65,5 +68,5 @@ func (c *TcpClient) Start(handler TcpHandler) bool {
 
 //重新启动
 func (c *TcpClient) ReStart() bool {
-	return c.Start(c.Handler)
+	return c.Start()
 }
