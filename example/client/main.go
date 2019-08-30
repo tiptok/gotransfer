@@ -12,9 +12,11 @@ import (
 )
 
 type TcpClientHandler struct {
+	ConnCount int64
 }
 
 func (cli *TcpClientHandler) OnConnect(c *conn.Connector) bool {
+	atomic.AddInt64(&cli.ConnCount,1)
 	log.Println("client On connect", c.RemoteAddress)
 	return true
 }
@@ -25,6 +27,7 @@ func (cli *TcpClientHandler) OnReceive(c *conn.Connector, d *conn.TcpData) bool 
 }
 func (cli *TcpClientHandler) OnClose(c *conn.Connector) {
 	//从列表移除
+	atomic.AddInt64(&cli.ConnCount,-1)
 	log.Println("Client OnClose:", c.RemoteAddress,c.Status())
 }
 
@@ -39,7 +42,7 @@ func main() {
 	flag.IntVar(&port,"p",9928,"remote server port")
 	flag.StringVar(&data,"d","hello tcp ","send data to remote server")
 	flag.IntVar(&termnum,"n",1,"client size link to remote server")
-	flag.IntVar(&interval,"i",1,"interval to send data")
+	flag.IntVar(&interval,"i",1000,"interval to send data (Millisecond)")
 
 	flag.Parse()
 
@@ -54,6 +57,7 @@ func main() {
 		totalSend int64
 		totalSendTime int64
 	)
+	handle :=new(TcpClientHandler)
 	for i:=0;i<termnum;i++{
 		go func(){
 			defer func(){
@@ -62,18 +66,17 @@ func main() {
 				}
 			}()
 			cli := &conn.TcpClient{}
-			handle :=new(TcpClientHandler)
 			cli.NewTcpClient(addr, port, handle)
 			//cli.Start(&TcpClientHandler{})
 			wg.Done()
 			for {
 				defer func(){
 					if p:=recover();p!=nil{
-
+						log.Println(p)
 					}
 				}()
 				if cli.Conn==nil || !cli.Conn.IsConneted{
-					cli.ReStart() //重连
+					cli.ReStart()
 					time.Sleep(10 * time.Second)
 					continue
 				}
@@ -83,7 +86,7 @@ func main() {
 					atomic.AddInt64(&totalSendTime,int64(1))
 					cli.Conn.SendChan<-conn.NewTcpData([]byte(data))
 				}
-				time.Sleep(time.Duration(int64(interval))*time.Second)
+				time.Sleep(time.Duration(int64(interval))*time.Millisecond)
 				//}
 			}
 		}()
@@ -92,11 +95,44 @@ func main() {
 	fmt.Printf("start client num:%d  current:%d time:%v\n",termnum,len(clientChan),beginTime)
 
 	go func(){
+		var lastSendSize int64
+		var lastInterval int64
+		var firstTime bool =true
+		onFirstTime :=func(){
+			fmt.Print("\n\n")
+			//fmt.Println("──────────┬────────────┬────────────┬────────────┬────────────")
+			fmt.Println(fmt.Sprintf("%20v %20v%10v %20v %20v %20v","total_send_time","total_send_size","","cost_time","per_second_send","conn_count"))
+			//fmt.Println("──────────┼────────────┼────────────┼────────────┬────────────")
+			firstTime = false
+		}
+		interval:=time.Second*10
+		ticker :=time.NewTicker(interval)
+		perSecSendData :=func(curSize,lastSize int64,interval int64)float64{
+			rsp :=float64(curSize-lastSize)/float64(interval-lastInterval)
+			//fmt.Println(curSize,lastSize,interval)
+			lastSendSize = curSize
+			lastInterval = interval
+			return rsp
+		}
+		printByteToMb := func(bSize float64)string{
+			kbSize :=bSize/1024
+			if kbSize<1024{
+				return fmt.Sprintf("%.1f KB",kbSize)
+			}
+			return fmt.Sprintf("%.1f MB",kbSize/1024)
+		}
 		for{
-			time.Sleep(time.Second*10)
-			curTime :=time.Now().Unix()
-			span :=curTime - beginTime
-			log.Println(fmt.Sprintf("time:%v total-send-size:%v per-second-Send:%v 消耗时间:%v s total_send_time:%v",curTime,totalSend,totalSend/span,int64(span),totalSendTime))
+			select{
+			case <-ticker.C:
+				if firstTime || handle.ConnCount!=int64(termnum){
+					onFirstTime()
+				}
+				curTime :=time.Now().Unix()
+				span :=curTime - beginTime
+				total :=totalSend
+				qps:=perSecSendData(total,lastSendSize,span)
+				fmt.Println(fmt.Sprintf("%20d %20d%10v %20d %18v/s %20d",curTime,total,printByteToMb(float64(total)),span,printByteToMb(qps),handle.ConnCount))
+			}
 		}
 	}()
 	<-exit
